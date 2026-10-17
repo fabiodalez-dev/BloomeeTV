@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class PlayPauseButton extends StatefulWidget {
   final double size;
   final VoidCallback? onPlay;
@@ -90,7 +91,7 @@ class _PlayPauseButtonState extends State<PlayPauseButton>
   Widget build(BuildContext context) {
     final size = widget.size;
 
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: _togglePlayPause,
       child: AnimatedBuilder(
         animation: _colorController,

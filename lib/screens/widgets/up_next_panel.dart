@@ -11,6 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'song_tile.dart';
 import 'more_bottom_sheet.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class _UpNextStyles {
   static final headerTextStyle = Default_Theme.secondoryTextStyleMedium.merge(
     TextStyle(
@@ -247,7 +248,7 @@ class _PanelContent extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  GestureDetector(
+                  TvGestureDetector(
                     onTap: onHeaderTap,
                     behavior: HitTestBehavior.opaque,
                     child: SizedBox(
@@ -366,7 +367,7 @@ class _ClearQueueButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: () => playerCubit.bloomeePlayer.clearQueue(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

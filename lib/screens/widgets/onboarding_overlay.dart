@@ -8,8 +8,10 @@ import 'package:Bloomee/services/db/db_provider.dart';
 import 'package:Bloomee/services/onboarding_service.dart';
 import 'package:Bloomee/utils/country_info.dart';
 import 'package:flutter/material.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class OnboardingOverlay extends StatefulWidget {
   final VoidCallback onComplete;
 
@@ -169,7 +171,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: Default_Theme().defaultThemeData,
+      theme: tvTheme(Default_Theme().defaultThemeData),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: _currentLocale,
@@ -313,6 +315,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                           ),
                           const SizedBox(height: 28),
                           ElevatedButton(
+                            autofocus: TvMode.isTv,
                             onPressed: _finish,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Default_Theme.accentColor2,
@@ -431,7 +434,7 @@ class _AestheticSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: () => onChanged(!value),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(

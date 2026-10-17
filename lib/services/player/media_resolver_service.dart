@@ -13,6 +13,7 @@ import 'package:Bloomee/services/db/db_provider.dart';
 import 'package:Bloomee/services/plugin/plugin_service.dart';
 import 'package:Bloomee/services/player/stream_quality_selector.dart';
 import 'package:Bloomee/src/rust/api/plugin/commands.dart';
+import 'package:Bloomee/tv/tv_config.dart';
 
 class ResolvedMediaSource {
   final Uri uri;
@@ -81,6 +82,18 @@ class MediaResolverService {
       throw Exception(
         'Cannot resolve stream for "${track.title}" — '
         'malformed media ID: "${track.id}"',
+      );
+    }
+
+    // Brani della libreria Jellyfin: streaming diretto del file originale.
+    if (parts.pluginId == kJellyfinPluginId) {
+      final jf = TvConfig.jellyfin;
+      if (jf == null) {
+        throw Exception('Jellyfin non configurato: apri Impostazioni TV');
+      }
+      return ResolvedMediaSource(
+        uri: Uri.parse(jf.streamUrl(parts.localId)),
+        isOffline: false,
       );
     }
 

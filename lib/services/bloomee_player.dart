@@ -14,6 +14,7 @@ import 'package:Bloomee/screens/widgets/snackbar.dart';
 import 'package:Bloomee/services/db/db_provider.dart';
 import 'package:Bloomee/services/db/dao/settings_dao.dart';
 import 'package:Bloomee/services/player/media_resolver_service.dart';
+import 'package:Bloomee/tv/tv_config.dart';
 import 'package:Bloomee/services/player/player_engine.dart';
 import 'package:Bloomee/services/player/player_error_handler.dart';
 import 'package:Bloomee/services/player/queue_manager.dart';
@@ -432,6 +433,9 @@ class BloomeeMusicPlayer extends BaseAudioHandler
       playing: playing,
       bufferedPosition: buffered,
       speed: speed,
+      // Brano corrente nella coda: senza, la sessione dichiara "nessun
+      // elemento attivo" e i controlli remoti (telefono) non mostrano i dati.
+      queueIndex: currentQueueIndex >= 0 ? currentQueueIndex : null,
     ));
 
     EasyThrottle.throttle('discord_rpc', const Duration(seconds: 1), () {
@@ -683,7 +687,11 @@ class BloomeeMusicPlayer extends BaseAudioHandler
   }
 
   Future<Track?> _tryAutoReplace(Track track, Object error) async {
-    if (!_isAutoResolvableError(error) || isLocalMediaId(track.id)) return null;
+    if (!_isAutoResolvableError(error) ||
+        isLocalMediaId(track.id) ||
+        track.id.startsWith('$kJellyfinPluginId::')) {
+      return null;
+    }
     final enabled = await SettingsDAO(DBProvider.db)
         .getSettingBool(SettingKeys.autoResolveUnavailableTracks);
     if (enabled == false) return null;

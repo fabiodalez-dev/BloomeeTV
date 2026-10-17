@@ -1,0 +1,1060 @@
+{
+  "@@locale": "it",
+  "onboardingTitle": "Benvenuto in Bloomee TV",
+  "onboardingSubtitle": "Imposta la tua lingua e la tua regione.",
+  "continueButton": "Continua",
+  "navHome": "Home",
+  "navLibrary": "Libreria",
+  "navSearch": "Cerca",
+  "navLocal": "Locali",
+  "navOffline": "Offline",
+  "playerEnjoyingFrom": "In riproduzione da",
+  "playerQueue": "Coda",
+  "playerPlayWithMix": "Riproduci con Auto-Mix",
+  "playerPlayNext": "Riproduci dopo",
+  "playerAddToQueue": "Aggiungi alla coda",
+  "playerAddToFavorites": "Aggiungi ai preferiti",
+  "playerNoLyricsFound": "Nessun testo trovato",
+  "playerLyricsNoPlugin": "Nessun provider di testi configurato. Vai in Impostazioni → Plugin per installarne uno.",
+  "playerFullscreenLyrics": "Testo a schermo intero",
+  "localMusicTitle": "Locali",
+  "localMusicGrantPermission": "Concedi autorizzazione",
+  "localMusicStorageAccessRequired": "Accesso alla memoria richiesto",
+  "localMusicStorageAccessDesc": "Concedi l'autorizzazione per cercare e riprodurre i file audio memorizzati sul dispositivo.",
+  "localMusicAddFolder": "Aggiungi cartella musicale",
+  "localMusicScanNow": "Scansiona ora",
+  "localMusicScanFailed": "Scansione non riuscita: {message}",
+  "@localMusicScanFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "localMusicScanning": "Ricerca di file audio sul dispositivo...",
+  "localMusicEmpty": "Nessuna musica locale trovata",
+  "localMusicSearchEmpty": "Nessun brano corrisponde alla ricerca.",
+  "localMusicShuffle": "Casuale",
+  "localMusicPlayAll": "Riproduci tutto",
+  "localMusicSearchHint": "Cerca nella musica locale...",
+  "localMusicRescanDevice": "Riscansiona dispositivo",
+  "localMusicRemoveFolder": "Rimuovi cartella",
+  "localMusicMusicFolders": "Cartelle musicali",
+  "localMusicTrackCount": "{count, plural, =1{1 brano} other{{count} brani}}",
+  "@localMusicTrackCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "buttonCancel": "Annulla",
+  "buttonDelete": "Elimina",
+  "buttonOk": "OK",
+  "buttonUpdate": "Aggiorna",
+  "buttonDownload": "Scarica",
+  "buttonShare": "Condividi",
+  "buttonLater": "Più tardi",
+  "buttonInfo": "Info",
+  "buttonMore": "Altro",
+  "dialogDeleteTrack": "Elimina brano",
+  "dialogDeleteTrackMessage": "Vuoi davvero eliminare \"{title}\" dal dispositivo? Questa azione non può essere annullata.",
+  "@dialogDeleteTrackMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "dialogDeleteTrackLinkedPlaylists": "Questo brano verrà rimosso anche da:",
+  "dialogDontAskAgain": "Non chiedere più",
+  "dialogDeletePlugin": "Eliminare il plugin?",
+  "dialogDeletePluginMessage": "Vuoi davvero eliminare \"{name}\"? I suoi file verranno rimossi in modo definitivo.",
+  "@dialogDeletePluginMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dialogUpdateAvailable": "Aggiornamento disponibile",
+  "dialogUpdateNow": "Aggiorna ora",
+  "dialogDownloadPlaylist": "Scarica playlist",
+  "dialogDownloadPlaylistMessage": "Vuoi scaricare {count} brani da \"{title}\"? Verranno aggiunti alla coda di download.",
+  "@dialogDownloadPlaylistMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "dialogDownloadAll": "Scarica tutto",
+  "playlistEdit": "Modifica playlist",
+  "playlistShareFile": "Condividi file",
+  "playlistExportFile": "Esporta file",
+  "playlistPlay": "Riproduci",
+  "playlistAddToQueue": "Aggiungi playlist alla coda",
+  "playlistShare": "Condividi playlist",
+  "playlistDelete": "Elimina playlist",
+  "playlistEmptyState": "Nessun brano ancora!",
+  "playlistAvailableOffline": "Disponibile offline",
+  "playlistShuffle": "Casuale",
+  "playlistMoreOptions": "Altre opzioni",
+  "playlistNoMatchSearch": "Nessuna playlist corrisponde alla ricerca",
+  "playlistCreateNew": "Crea nuova playlist 😍",
+  "playlistCreateFirstOne": "Nessuna playlist ancora. Creane una per iniziare!",
+  "addToPlaylistNoSongSelected": "Nessun brano selezionato",
+  "createPlaylistDialogBarrierLabel": "Finestra di creazione playlist",
+  "createPlaylistDialogNameHint": "Vibe estive",
+  "createPlaylistDialogCreate": "Crea",
+  "playlistSongCount": "{count, plural, =1{1 brano} other{{count} brani}}",
+  "@playlistSongCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "playlistRemovedTrack": "{title} rimosso da {playlist}",
+  "@playlistRemovedTrack": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "playlist": {
+        "type": "String"
+      }
+    }
+  },
+  "playlistFailedToLoad": "Impossibile caricare la playlist",
+  "settingsTitle": "Impostazioni",
+  "settingsPlugins": "Plugin",
+  "settingsPluginsSubtitle": "Installa, carica e gestisci i plugin.",
+  "settingsUpdates": "Aggiornamenti",
+  "settingsUpdatesSubtitle": "Controlla nuovi aggiornamenti",
+  "settingsDownloads": "Download",
+  "settingsDownloadsSubtitle": "Cartella di download, qualità di download e altro...",
+  "settingsLocalTracks": "Brani locali",
+  "settingsLocalTracksSubtitle": "Scansione, gestione delle cartelle e impostazioni di scansione automatica.",
+  "settingsPlayer": "Impostazioni player",
+  "settingsPlayerSubtitle": "Qualità dello streaming, riproduzione automatica, ecc.",
+  "settingsPluginDefaults": "Impostazioni predefinite plugin",
+  "settingsPluginDefaultsSubtitle": "Sorgente di Esplora, priorità dei resolver.",
+  "settingsUIElements": "Elementi UI e servizi",
+  "settingsUIElementsSubtitle": "Scorrimento automatico, modifiche UI ecc.",
+  "settingsLastFM": "Impostazioni Last.FM",
+  "settingsLastFMSubtitle": "Chiave API, segreto e impostazioni di scrobbling.",
+  "settingsStorage": "Memoria",
+  "settingsStorageSubtitle": "Backup, cache, cronologia, ripristino e altro...",
+  "settingsLanguageCountry": "Lingua e paese",
+  "settingsLanguageCountrySubtitle": "Seleziona la tua lingua e il tuo paese.",
+  "settingsAbout": "Info",
+  "settingsAboutSubtitle": "Info sull'app, versione, sviluppatore, ecc.",
+  "settingsScanning": "Scansione",
+  "settingsMusicFolders": "Cartelle musicali",
+  "settingsQuality": "Qualità",
+  "settingsHistory": "Cronologia",
+  "settingsBackupRestore": "Backup e ripristino",
+  "settingsAutomatic": "Automatico",
+  "settingsDangerZone": "Zona pericolosa",
+  "settingsScrobbling": "Scrobbling",
+  "settingsAuthentication": "Autenticazione",
+  "settingsHomeScreen": "Schermata Home",
+  "settingsChartVisibility": "Visibilità classifiche",
+  "settingsLocation": "Posizione",
+  "pluginRepositoryTitle": "Repository dei plugin",
+  "pluginRepositorySubtitle": "Aggiungi una sorgente JSON per sfogliare i plugin remoti.",
+  "pluginRepositoryAddAction": "Aggiungi repository",
+  "pluginRepositoryAddTitle": "Aggiungi repository",
+  "pluginRepositoryAddSubtitle": "Inserisci l'URL di un file JSON valido di repository plugin.",
+  "pluginRepositoryEmpty": "Nessun repository aggiunto.",
+  "pluginRepositoryUrlCopied": "URL del repository copiato negli appunti",
+  "pluginRepositoryNoDescription": "Nessuna descrizione fornita.",
+  "pluginRepositoryUnknownUpdate": "Aggiornamento sconosciuto",
+  "pluginRepositoryPluginsCount": "{count, plural, =1{1 plugin} other{{count} plugin}}",
+  "@pluginRepositoryPluginsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluginRepositoryErrorLoad": "Impossibile caricare i repository.",
+  "pluginRepositoryErrorInvalid": "URL del repository o file del repository non valido.",
+  "pluginRepositoryErrorRemove": "Impossibile rimuovere il repository.",
+  "pluginRepositoryError": "Errore: {message}",
+  "@pluginRepositoryError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "dialogAddingToDownloadQueue": "Aggiunta alla coda di download",
+  "emptyNoInternet": "Nessuna connessione Internet!",
+  "emptyNoContentPlugin": "Nessun plugin di contenuti caricato. Carica un Content Resolver in Gestione plugin.",
+  "emptyRefreshingSource": "Aggiornamento della sorgente di Esplora... La sorgente precedente non è più disponibile.",
+  "emptyNoTracks": "Nessun brano disponibile",
+  "emptyNoResults": "Nessuna corrispondenza trovata",
+  "snackbarDeletedTrack": "Eliminato \"{title}\"",
+  "@snackbarDeletedTrack": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarDeleteFailed": "Impossibile eliminare \"{title}\"",
+  "@snackbarDeleteFailed": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarAddedToNextQueue": "Aggiunto come prossimo in coda",
+  "snackbarAddedToQueue": "Aggiunto alla coda",
+  "snackbarAddedToLiked": "{title} aggiunto ai Mi piace!!",
+  "@snackbarAddedToLiked": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarNowPlaying": "In riproduzione {name}",
+  "@snackbarNowPlaying": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarPlaylistAddedToQueue": "Aggiunta alla coda: {name}",
+  "@snackbarPlaylistAddedToQueue": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarPlaylistQueued": "Playlist aggiunta alla coda di download",
+  "snackbarPlaylistUpdated": "Playlist aggiornata!",
+  "snackbarNoInternet": "Nessuna connessione Internet.",
+  "snackbarImportFailed": "Importazione non riuscita!",
+  "snackbarImportCompleted": "Importazione completata",
+  "snackbarBackupFailed": "Backup non riuscito!",
+  "snackbarExportedTo": "Esportato in: {path}",
+  "@snackbarExportedTo": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarMediaIdCopied": "ID media copiato",
+  "snackbarLinkCopied": "Link copiato",
+  "snackbarNoLinkAvailable": "Nessun link disponibile",
+  "snackbarCouldNotOpenLink": "Impossibile aprire il link",
+  "snackbarPreparingDownload": "Preparazione del download di {title}...",
+  "@snackbarPreparingDownload": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarAlreadyDownloaded": "{title} è già scaricato.",
+  "@snackbarAlreadyDownloaded": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarAlreadyInQueue": "{title} è già in coda.",
+  "@snackbarAlreadyInQueue": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarDownloaded": "Scaricato {title}",
+  "@snackbarDownloaded": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarDownloadServiceUnavailable": "Errore: servizio di download non disponibile.",
+  "snackbarSongsAddedToQueue": "Aggiunti {count} brani alla coda di download",
+  "@snackbarSongsAddedToQueue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "snackbarDeleteTrackFailDevice": "Impossibile eliminare il brano dalla memoria del dispositivo.",
+  "searchHintExplore": "Cosa vuoi ascoltare?",
+  "searchHintLibrary": "Cerca in libreria...",
+  "searchHintOfflineMusic": "Cerca tra i tuoi brani...",
+  "searchHintPlaylists": "Cerca playlist...",
+  "searchStartTyping": "Inizia a digitare per cercare...",
+  "searchNoSuggestions": "Nessun suggerimento trovato!",
+  "searchNoResults": "Nessun risultato trovato!\nProva un'altra parola chiave o sorgente.",
+  "searchFailed": "Ricerca non riuscita!",
+  "searchDiscover": "Scopri musica fantastica...",
+  "searchSources": "SORGENTI",
+  "searchNoPlugins": "Nessun plugin installato",
+  "searchTracks": "Brani",
+  "searchAlbums": "Album",
+  "searchArtists": "Artisti",
+  "searchPlaylists": "Playlist",
+  "exploreDiscover": "Esplora",
+  "exploreRecently": "Di recente",
+  "exploreLastFmPicks": "Consigli Last.Fm",
+  "exploreFailedToLoad": "Impossibile caricare le sezioni della Home.",
+  "libraryTitle": "Libreria",
+  "libraryEmptyState": "La tua libreria è vuota. Aggiungi qualche brano per animarla!",
+  "libraryIn": "in {playlistName}",
+  "@libraryIn": {
+    "placeholders": {
+      "playlistName": {
+        "type": "String"
+      }
+    }
+  },
+  "menuAddToPlaylist": "Aggiungi a playlist",
+  "menuSmartReplace": "Sostituzione intelligente",
+  "menuShare": "Condividi",
+  "menuAvailableOffline": "Disponibile offline",
+  "menuDownload": "Scarica",
+  "menuOpenOriginalLink": "Apri link originale",
+  "menuDeleteTrack": "Elimina",
+  "songInfoTitle": "Titolo",
+  "songInfoArtist": "Artista",
+  "songInfoAlbum": "Album",
+  "songInfoMediaId": "ID media",
+  "songInfoCopyId": "Copia ID",
+  "songInfoCopyLink": "Copia link",
+  "songInfoOpenBrowser": "Apri nel browser",
+  "tooltipRemoveFromLibrary": "Rimuovi dalla libreria",
+  "tooltipSaveToLibrary": "Salva in libreria",
+  "tooltipOpenOriginalLink": "Apri link originale",
+  "tooltipShuffle": "Casuale",
+  "tooltipAvailableOffline": "Disponibile offline",
+  "tooltipDownloadPlaylist": "Scarica playlist",
+  "tooltipMoreOptions": "Altre opzioni",
+  "tooltipInfo": "Info",
+  "appuiTitle": "UI e servizi",
+  "appuiAutoSlideCharts": "Scorrimento automatico classifiche",
+  "appuiAutoSlideChartsSubtitle": "Fa scorrere automaticamente le classifiche nella schermata Home.",
+  "appuiLastFmPicksSubtitle": "Mostra suggerimenti da Last.FM. Accesso e riavvio richiesti.",
+  "appuiNoChartsAvailable": "Nessuna classifica disponibile. Carica un plugin di classifiche.",
+  "appuiLoginToLastFm": "Accedi prima a Last.FM.",
+  "appuiShowInCarousel": "Mostra nel carosello della Home.",
+  "countrySettingTitle": "Paese e lingua",
+  "countrySettingAutoDetect": "Rileva paese automaticamente",
+  "countrySettingAutoDetectSubtitle": "Rileva automaticamente il tuo paese all'apertura dell'app.",
+  "countrySettingCountryLabel": "Paese",
+  "countrySettingLanguageLabel": "Lingua",
+  "countrySettingSystemDefault": "Predefinito di sistema",
+  "downloadSettingTitle": "Download",
+  "downloadSettingQuality": "Qualità download",
+  "downloadSettingQualitySubtitle": "Preferenza universale di qualità audio per i brani scaricati.",
+  "downloadSettingFolder": "Cartella di download",
+  "downloadSettingResetFolder": "Ripristina cartella di download",
+  "downloadSettingResetFolderSubtitle": "Ripristina il percorso di download predefinito.",
+  "lastfmTitle": "Last.FM",
+  "lastfmScrobbleTracks": "Scrobbling dei brani",
+  "lastfmScrobbleTracksSubtitle": "Invia i brani riprodotti al tuo profilo Last.FM.",
+  "lastfmAuthFirst": "Autentica prima l'API di Last.FM.",
+  "lastfmAuthenticatedAs": "Autenticato come",
+  "lastfmAuthFailed": "Autenticazione non riuscita:",
+  "lastfmNotAuthenticated": "Non autenticato",
+  "lastfmSteps": "Passaggi per l'autenticazione:\n1. Crea o accedi a un account Last.FM su last.fm\n2. Genera una chiave API su last.fm/api/account/create\n3. Inserisci qui sotto la tua chiave API e il segreto\n4. Tocca \"Avvia autenticazione\" e approva nel browser\n5. Tocca \"Ottieni e salva chiave di sessione\" per completare",
+  "lastfmApiKey": "Chiave API",
+  "lastfmApiSecret": "Segreto API",
+  "lastfmStartAuth": "1. Avvia autenticazione",
+  "lastfmGetSession": "2. Ottieni e salva chiave di sessione",
+  "lastfmRemoveKeys": "Rimuovi chiavi",
+  "lastfmStartAuthFirst": "Avvia prima l'autenticazione, poi approva nel browser.",
+  "localSettingTitle": "Brani locali",
+  "localSettingAutoScan": "Scansione automatica all'avvio",
+  "localSettingAutoScanSubtitle": "Cerca automaticamente nuovi brani locali all'avvio dell'app.",
+  "localSettingLastScan": "Ultima scansione",
+  "localSettingNeverScanned": "Mai",
+  "localSettingScanInProgress": "Scansione in corso…",
+  "localSettingScanNowSubtitle": "Avvia manualmente una scansione completa della libreria.",
+  "localSettingNoFolders": "Nessuna cartella aggiunta. Aggiungi una cartella per iniziare la scansione.",
+  "localSettingAddFolder": "Aggiungi cartella",
+  "playerSettingTitle": "Impostazioni player",
+  "playerSettingStreamingHeader": "Streaming",
+  "playerSettingStreamQuality": "Qualità streaming",
+  "playerSettingStreamQualitySubtitle": "Bitrate audio globale per la riproduzione online.",
+  "playerSettingQualityLow": "Bassa",
+  "playerSettingQualityMedium": "Media",
+  "playerSettingQualityHigh": "Alta",
+  "playerSettingPlaybackHeader": "Riproduzione",
+  "playerSettingAutoPlay": "Riproduzione automatica",
+  "playerSettingAutoPlaySubtitle": "Accoda brani simili quando la coda finisce.",
+  "playerSettingAutoFallback": "Riproduzione di ripiego automatica",
+  "playerSettingAutoFallbackSubtitle": "Se un plugin manca o non restituisce flussi, prova un resolver compatibile solo per la riproduzione.",
+  "playerSettingCrossfade": "Dissolvenza incrociata",
+  "playerSettingCrossfadeOff": "Disattivata",
+  "playerSettingCrossfadeInstant": "I brani cambiano istantaneamente",
+  "playerSettingCrossfadeBlend": "Miscelazione di {seconds} s tra i brani",
+  "@playerSettingCrossfadeBlend": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "playerSettingEqualizer": "Equalizzatore",
+  "playerSettingEqualizerActive": "Attivo",
+  "playerSettingEqualizerActivePreset": "Attivo — preset {preset}",
+  "@playerSettingEqualizerActivePreset": {
+    "placeholders": {
+      "preset": {
+        "type": "String"
+      }
+    }
+  },
+  "playerSettingEqualizerSubtitle": "EQ parametrico a 10 bande tramite FFmpeg.",
+  "pluginDefaultsTitle": "Impostazioni predefinite plugin",
+  "pluginDefaultsDiscoverHeader": "Sorgente di Esplora",
+  "pluginDefaultsNoResolver": "Nessun resolver di contenuti caricato. Carica un plugin per scegliere una sorgente di Esplora.",
+  "pluginDefaultsAutomaticSubtitle": "Usa il primo resolver di contenuti disponibile.",
+  "pluginDefaultsPriorityHeader": "Priorità dei resolver",
+  "pluginDefaultsNoPriority": "Nessun resolver di contenuti caricato. L'ordine di priorità apparirà qui dopo il caricamento dei plugin.",
+  "pluginDefaultsPriorityDesc": "Trascina per riordinare. I resolver con priorità più alta vengono provati per primi quando si risolvono elementi di classifica o brani importati in brani riproducibili.",
+  "pluginDefaultsLyricsHeader": "Priorità dei testi",
+  "pluginDefaultsLyricsNone": "Nessun provider di testi caricato.",
+  "pluginDefaultsLyricsDesc": "Trascina per riordinare i provider di testi. Il primo provider viene provato per primo.",
+  "pluginDefaultsSuggestionsHeader": "Suggerimenti di ricerca",
+  "pluginDefaultsSuggestionsNone": "Nessun provider di suggerimenti caricato.",
+  "pluginDefaultsSuggestionsHistoryOnlyTitle": "Nessuno",
+  "pluginDefaultsSuggestionsHistoryOnlySubtitle": "Usa solo la cronologia di ricerca.",
+  "storageSettingTitle": "Memoria",
+  "storageClearHistoryEvery": "Cancella cronologia ogni",
+  "storageClearHistorySubtitle": "Cancella la cronologia di ascolto dopo il periodo scelto.",
+  "storageDays": "{count, plural, =1{1 giorno} other{{count} giorni}}",
+  "@storageDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "storageBackupLocation": "Posizione del backup",
+  "storageBackupLocationAndroid": "Cartella Download / dati app",
+  "storageBackupLocationDownloads": "Cartella Download",
+  "storageCreateBackup": "Crea backup",
+  "storageCreateBackupSubtitle": "Salva impostazioni e dati in un file di backup.",
+  "storageBackupCreatedAt": "Backup creato in {path}",
+  "@storageBackupCreatedAt": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "storageBackupShareFailed": "Condivisione del backup non riuscita: {error}",
+  "@storageBackupShareFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "storageBackupFailed": "Backup non riuscito!",
+  "storageRestoreBackup": "Ripristina backup",
+  "storageRestoreBackupSubtitle": "Ripristina impostazioni e dati da un file di backup.",
+  "storageAutoBackup": "Backup automatico",
+  "storageAutoBackupSubtitle": "Crea periodicamente un backup automatico dei tuoi dati.",
+  "storageAutoLyrics": "Salva automaticamente i testi",
+  "storageAutoLyricsSubtitle": "Salva i testi automaticamente quando un brano viene riprodotto.",
+  "storageResetApp": "Ripristina app Bloomee",
+  "storageResetAppSubtitle": "Elimina tutti i dati e riporta l'app allo stato predefinito.",
+  "storageResetConfirmTitle": "Conferma ripristino",
+  "storageResetConfirmMessage": "Vuoi davvero ripristinare Bloomee? Verranno eliminati tutti i tuoi dati e l'operazione non può essere annullata.",
+  "storageResetButton": "Ripristina",
+  "storageResetSuccess": "L'app è stata riportata allo stato predefinito.",
+  "storageLocationDialogTitle": "Posizione del backup",
+  "storageLocationAndroid": "I backup sono salvati in:\n\n1. Cartella Download\n2. Android/data/ls.bloomee.musicplayer/data\n\nCopia il file da una delle due posizioni.",
+  "storageLocationOther": "I backup sono salvati nella cartella Download. Copia il file da lì.",
+  "storageRestoreOptionsTitle": "Opzioni di ripristino",
+  "storageRestoreOptionsDesc": "Scegli quali dati ripristinare dal file di backup selezionato. Deseleziona le voci che NON vuoi importare. Per impostazione predefinita sono tutte selezionate.",
+  "storageRestoreSelectAll": "Seleziona tutto",
+  "storageRestoreMediaItems": "Elementi multimediali (brani, tracce, voci di libreria)",
+  "storageRestoreSearchHistory": "Cronologia di ricerca",
+  "storageRestoreContinue": "Continua",
+  "storageRestoreNoFile": "Nessun file selezionato.",
+  "storageRestoreSaveFailed": "Impossibile salvare il file selezionato.",
+  "storageRestoreConfirmTitle": "Conferma ripristino",
+  "storageRestoreConfirmPrefix": "Questa operazione sovrascriverà e unirà le parti selezionate nell'app con i dati del file di backup:",
+  "storageRestoreConfirmSuffix": "I tuoi dati attuali verranno modificati o uniti. Vuoi davvero procedere?",
+  "storageRestoreYes": "Sì, ripristina",
+  "storageRestoreNo": "No",
+  "storageRestoring": "Ripristino dei dati selezionati…\nAttendi il completamento dell'operazione.",
+  "storageRestoreMediaBullet": "• Elementi multimediali",
+  "storageRestoreHistoryBullet": "• Cronologia di ricerca",
+  "storageUnexpectedError": "Si è verificato un errore imprevisto durante il ripristino.",
+  "storageRestoreCompleted": "Ripristino completato",
+  "storageRestoreFailedTitle": "Ripristino non riuscito",
+  "storageRestoreSuccessMessage": "I dati selezionati sono stati ripristinati con successo. Per risultati migliori, riavvia ora l'app.",
+  "storageRestoreFailedMessage": "Il ripristino non è riuscito con i seguenti errori:",
+  "storageRestoreUnknownError": "Errore sconosciuto durante il ripristino.",
+  "storageRestoreRestartHint": "Riavvia l'app per una maggiore coerenza.",
+  "updateSettingTitle": "Aggiornamenti",
+  "updateAppUpdatesHeader": "Aggiornamenti app",
+  "updateCheckForUpdates": "Controlla aggiornamenti",
+  "updateCheckSubtitle": "Verifica se è disponibile una versione più recente di Bloomee.",
+  "updateAutoNotify": "Notifica automatica aggiornamenti",
+  "updateAutoNotifySubtitle": "Ricevi una notifica all'avvio dell'app quando sono disponibili aggiornamenti.",
+  "updateCheckTitle": "Controlla aggiornamenti",
+  "updateUpToDate": "Bloomee🌸 è aggiornato!!!",
+  "updateViewPreRelease": "Vedi ultima pre-release",
+  "updateCurrentVersion": "Versione attuale: {curr} + {build}",
+  "@updateCurrentVersion": {
+    "placeholders": {
+      "curr": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "updateNewVersionAvailable": "È ora disponibile una nuova versione di Bloomee🌸!!",
+  "updateVersion": "Versione: {ver}+{build}",
+  "@updateVersion": {
+    "placeholders": {
+      "ver": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "updateDownloadNow": "Scarica ora",
+  "updateChecking": "Verifica della disponibilità di una versione più recente in corso!",
+  "timerTitle": "Timer di spegnimento",
+  "timerInterludeMessage": "Preparazione di un tranquillo intermezzo tra…",
+  "timerHours": "Ore",
+  "timerMinutes": "Minuti",
+  "timerSeconds": "Secondi",
+  "timerStop": "Ferma timer",
+  "timerFinishedMessage": "I brani si sono riposati. Buonanotte 🥰.",
+  "timerGotIt": "Ok!",
+  "timerSetTimeError": "Imposta un orario",
+  "timerStart": "Avvia timer",
+  "notificationsTitle": "Notifiche",
+  "notificationsEmpty": "Nessuna notifica ancora!",
+  "recentsTitle": "Cronologia",
+  "playlistByCreator": "di {creator}",
+  "@playlistByCreator": {
+    "placeholders": {
+      "creator": {
+        "type": "String"
+      }
+    }
+  },
+  "playlistTypeAlbum": "Album",
+  "playlistTypePlaylist": "Playlist",
+  "playlistYou": "Tu",
+  "pluginManagerTitle": "Plugin",
+  "pluginManagerEmpty": "Nessun plugin installato.\nTocca + per aggiungere un file .bex.",
+  "pluginManagerFilterAll": "Tutti",
+  "pluginManagerFilterContent": "Resolver di contenuti",
+  "pluginManagerFilterCharts": "Provider di classifiche",
+  "pluginManagerFilterLyrics": "Provider di testi",
+  "pluginManagerFilterSuggestions": "Provider di suggerimenti",
+  "pluginManagerFilterImporters": "Importatori di contenuti",
+  "pluginManagerTooltipRefresh": "Aggiorna",
+  "pluginManagerTooltipInstall": "Installa plugin",
+  "pluginManagerNoMatch": "Nessun plugin corrisponde a questo filtro",
+  "pluginManagerPickFailed": "Selezione del file non riuscita: {error}",
+  "@pluginManagerPickFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginManagerInstalling": "Installazione del plugin...",
+  "pluginManagerTypeContentResolver": "Resolver di contenuti",
+  "pluginManagerTypeChartProvider": "Provider di classifiche",
+  "pluginManagerTypeLyricsProvider": "Provider di testi",
+  "pluginManagerTypeSuggestionProvider": "Suggerimenti di ricerca",
+  "pluginManagerTypeContentImporter": "Importatore di contenuti",
+  "pluginManagerDeleteTitle": "Eliminare il plugin?",
+  "pluginManagerDeleteMessage": "Vuoi davvero eliminare \"{name}\"? I suoi file verranno rimossi in modo definitivo.",
+  "@pluginManagerDeleteMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginManagerDeleteAction": "Elimina",
+  "pluginManagerCancel": "Annulla",
+  "pluginManagerEnablePlugin": "Attiva plugin",
+  "pluginManagerUnloadPlugin": "Scarica plugin",
+  "pluginManagerDeleting": "Eliminazione...",
+  "pluginManagerApiKeysTitle": "Chiavi API",
+  "pluginManagerApiKeysSaved": "Chiavi API salvate",
+  "pluginManagerSave": "Salva",
+  "pluginManagerDetailVersion": "Versione",
+  "pluginManagerDetailType": "Tipo",
+  "pluginManagerDetailPublisher": "Editore",
+  "pluginManagerDetailLastUpdated": "Ultimo aggiornamento",
+  "pluginManagerDetailCreated": "Creato il",
+  "pluginManagerDetailHomepage": "Sito web",
+  "pluginManagerDowngradeTitle": "Eseguire il downgrade del plugin?",
+  "pluginManagerDowngradeMessage": "Stai installando una versione uguale o precedente di \"{name}\". Continuare?",
+  "@pluginManagerDowngradeMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginManagerDowngradeAction": "Installa comunque",
+  "pluginManagerDeleteStorageTitle": "Eliminare i dati del plugin?",
+  "pluginManagerDeleteStorageMessage": "Vuoi rimuovere anche le chiavi API e le impostazioni salvate per \"{name}\"?",
+  "@pluginManagerDeleteStorageMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginManagerDeleteStorageKeep": "Mantieni dati",
+  "pluginManagerDeleteStorageRemove": "Rimuovi dati",
+  "segmentsSheetTitle": "Segmenti",
+  "segmentsSheetEmpty": "Nessun segmento disponibile",
+  "segmentsSheetUntitled": "Segmento senza titolo",
+  "smartReplaceTitle": "Sostituzione intelligente",
+  "smartReplaceSubtitle": "Scegli un sostituto riproducibile per \"{title}\" e aggiorna i riferimenti salvati nelle playlist.",
+  "@smartReplaceSubtitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "smartReplaceClose": "Chiudi",
+  "smartReplaceNoMatch": "Nessun sostituto trovato",
+  "smartReplaceNoMatchSubtitle": "Nessuno dei plugin resolver caricati ha restituito una corrispondenza sufficientemente valida.",
+  "smartReplaceBestMatch": "Migliore corrispondenza",
+  "smartReplaceSearchFailed": "Ricerca non riuscita",
+  "smartReplaceApplyFailed": "Sostituzione intelligente non riuscita: {error}",
+  "@smartReplaceApplyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "smartReplaceApplied": "Sostituzione applicata{queue}.",
+  "@smartReplaceApplied": {
+    "placeholders": {
+      "queue": {
+        "type": "String"
+      }
+    }
+  },
+  "smartReplaceAppliedPlaylists": "Sostituito in {count} playlist{plural}{queue}.",
+  "@smartReplaceAppliedPlaylists": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "plural": {
+        "type": "String"
+      },
+      "queue": {
+        "type": "String"
+      }
+    }
+  },
+  "smartReplaceQueueUpdated": " e coda aggiornata",
+  "playerUnknownQueue": "Sconosciuto",
+  "playerLiked": "{title} aggiunto ai Mi piace!!",
+  "@playerLiked": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "playerUnliked": "{title} rimosso dai Mi piace!!",
+  "@playerUnliked": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineNoDownloads": "Nessun download",
+  "offlineTitle": "Offline",
+  "offlineSearchHint": "Cerca tra i tuoi brani...",
+  "offlineRefreshTooltip": "Aggiorna download",
+  "offlineCloseSearch": "Chiudi ricerca",
+  "offlineSearchTooltip": "Cerca",
+  "offlineOpenFailed": "Impossibile aprire questo brano offline. Prova ad aggiornare i download.",
+  "offlinePlayFailed": "Impossibile riprodurre questo brano offline. Riprova.",
+  "albumViewTrackCount": "{count, plural, =1{1 brano} other{{count} brani}}",
+  "@albumViewTrackCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "albumViewLoadFailed": "Impossibile caricare l'album",
+  "aboutCraftingSubtitle": "Creare sinfonie nel codice.",
+  "aboutFollowGitHub": "Seguilo su GitHub",
+  "aboutSendInquiry": "Invia una richiesta commerciale",
+  "aboutCreativeHighlights": "Aggiornamenti e novità creative",
+  "aboutTipQuote": "Ti piace Bloomee? Una piccola offerta lo mantiene in fiore. 🌸",
+  "aboutTipButton": "Ti aiuto",
+  "aboutTipDesc": "Voglio che Bloomee continui a migliorare.",
+  "aboutGitHub": "GitHub",
+  "songInfoSectionDetails": "Dettagli brano",
+  "songInfoSectionTechnical": "Info tecniche",
+  "songInfoSectionActions": "Azioni",
+  "songInfoLabelTitle": "Titolo",
+  "songInfoLabelArtist": "Artista",
+  "songInfoLabelAlbum": "Album",
+  "songInfoLabelDuration": "Durata",
+  "songInfoLabelSource": "Sorgente",
+  "songInfoLabelMediaId": "ID media",
+  "songInfoLabelPluginId": "ID plugin",
+  "songInfoIdCopied": "ID media copiato",
+  "songInfoLinkCopied": "Link copiato",
+  "songInfoNoLink": "Nessun link disponibile",
+  "songInfoOpenFailed": "Impossibile aprire il link",
+  "songInfoUpdateMetadata": "Ottieni metadati aggiornati",
+  "songInfoMetadataUpdated": "Metadati aggiornati",
+  "songInfoMetadataUpdateFailed": "Impossibile aggiornare i metadati",
+  "songInfoMetadataUnavailable": "L'aggiornamento dei metadati non è disponibile per questa sorgente",
+  "songInfoSearchTitle": "Cerca questo brano in Bloomee",
+  "songInfoSearchArtist": "Cerca questo artista in Bloomee",
+  "songInfoSearchAlbum": "Cerca questo album in Bloomee",
+  "eqTitle": "Equalizzatore",
+  "eqResetTooltip": "Ripristina piatto",
+  "chartNoItems": "Nessun elemento in questa classifica",
+  "chartLoadFailed": "Impossibile caricare la classifica",
+  "chartPlay": "Riproduci",
+  "chartResolving": "Risoluzione in corso",
+  "chartReady": "Pronto",
+  "chartAddToPlaylist": "Aggiungi a playlist",
+  "chartNoResolver": "Nessun resolver di contenuti caricato. Installa un plugin per riprodurre.",
+  "chartResolveFailed": "Impossibile risolvere. Ricerca in corso...",
+  "chartNoResolverAdd": "Nessun resolver di contenuti caricato.",
+  "chartNoMatch": "Nessuna corrispondenza trovata. Prova a cercare manualmente.",
+  "chartStatPeak": "Picco",
+  "chartStatWeeks": "Settimane",
+  "chartStatChange": "Variazione",
+  "menuSharePreparing": "Preparazione di {title} per la condivisione.",
+  "@menuSharePreparing": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "menuOpenLinkFailed": "Impossibile aprire il link",
+  "localMusicFolders": "Cartelle musicali",
+  "localMusicCloseSearch": "Chiudi ricerca",
+  "localMusicOpenSearch": "Cerca",
+  "localMusicNoMusicFound": "Nessuna musica locale trovata",
+  "localMusicNoSearchResults": "Nessun brano corrisponde alla ricerca.",
+  "importSongsTitle": "Importa brani",
+  "importNoPluginsLoaded": "Nessun plugin di importazione di contenuti caricato.\nInstalla un plugin di importazione per importare playlist da servizi esterni.",
+  "importBloomeeFiles": "Importa file Bloomee",
+  "importM3UFiles": "Importa playlist M3U",
+  "importM3UNameDialogTitle": "Nome playlist",
+  "importM3UNameHint": "Inserisci un nome per questa playlist",
+  "importM3UNoTracks": "Nessun brano valido trovato nel file M3U.",
+  "importNoteTitle": "Nota",
+  "importNoteMessage": "Puoi importare solo file creati da Bloomee.\nSe il file proviene da un'altra fonte, non funzionerà. Continuare comunque?",
+  "importTitle": "Importa",
+  "importCheckingUrl": "Verifica URL...",
+  "importFetchingTracks": "Recupero brani...",
+  "importSavingToLibrary": "Salvataggio in libreria...",
+  "importPasteUrlHint": "Incolla l'URL di una playlist o di un album da importare",
+  "importAction": "Importa",
+  "importTrackCount": "{count} brani",
+  "@importTrackCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importResolving": "Risoluzione in corso...",
+  "importResolvingProgress": "Risoluzione brani: {done} / {total}",
+  "@importResolvingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "importReviewTitle": "Revisione importazione",
+  "importReviewSummary": "{resolved} risolti, {failed} non riusciti su {total}",
+  "@importReviewSummary": {
+    "placeholders": {
+      "resolved": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "importSaveTracks": "Salva {count} brani",
+  "@importSaveTracks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importTracksSaved": "{count} brani salvati!",
+  "@importTracksSaved": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importDone": "Fatto",
+  "importMore": "Importa altro",
+  "importUnknownError": "Errore sconosciuto",
+  "importTryAgain": "Riprova",
+  "importSkipTrack": "Salta questo brano",
+  "importMatchOptions": "Opzioni di corrispondenza",
+  "importAutoMatched": "Abbinato automaticamente",
+  "importUserSelected": "Selezionato",
+  "importSkipped": "Saltato",
+  "importNoMatch": "Nessuna corrispondenza trovata",
+  "importReorderTip": "Tieni premuta una playlist per iniziare a riordinare",
+  "importErrorCannotHandleUrl": "Questo plugin non può gestire l'URL fornito.",
+  "importErrorUnexpectedResponse": "Risposta inattesa dal plugin.",
+  "importErrorFailedToCheck": "Verifica dell'URL non riuscita: {error}",
+  "@importErrorFailedToCheck": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importErrorFailedToFetchInfo": "Recupero delle informazioni sulla raccolta non riuscito: {error}",
+  "@importErrorFailedToFetchInfo": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importErrorFailedToFetchTracks": "Recupero dei brani non riuscito: {error}",
+  "@importErrorFailedToFetchTracks": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importErrorFailedToSave": "Salvataggio della playlist non riuscito: {error}",
+  "@importErrorFailedToSave": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "playlistPinToTop": "Fissa in alto",
+  "playlistUnpin": "Rimuovi da fissati",
+  "snackbarImportingMedia": "Importazione degli elementi multimediali..",
+  "snackbarPlaylistSaved": "Playlist salvata in libreria!",
+  "snackbarInvalidFileFormat": "Formato file non valido",
+  "snackbarMediaItemImported": "Elemento multimediale importato",
+  "snackbarPlaylistImported": "Playlist importata",
+  "snackbarOpenImportForUrl": "Apri la schermata Importa in Libreria per importare da questo URL.",
+  "snackbarProcessingFile": "Elaborazione del file...",
+  "snackbarPreparingShare": "Preparazione di {title} per la condivisione",
+  "@snackbarPreparingShare": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snackbarPreparingExport": "Preparazione di {title} per l'esportazione.",
+  "@snackbarPreparingExport": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginManagerTabInstalled": "Installati",
+  "pluginManagerTabStore": "Store plugin",
+  "pluginManagerSelectPackage": "Seleziona pacchetto plugin (.bex)",
+  "pluginManagerOutdatedManifest": "Il plugin usa una versione obsoleta del manifest. Alcune funzioni potrebbero non funzionare. Valuta un aggiornamento.",
+  "pluginManagerStatusActive": "Attivo",
+  "pluginManagerStatusInactive": "Inattivo",
+  "pluginRepositoryUpdatedOn": "Aggiornato il {date}",
+  "@pluginRepositoryUpdatedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginRepositoryAvailableCount": "{count, plural, =1{1 plugin disponibile} other{{count} plugin disponibili}}",
+  "@pluginRepositoryAvailableCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluginRepositoryOutdatedManifest": "Manifest obsoleto. Alcune funzioni potrebbero non funzionare.",
+  "pluginRepositoryUnknownPublisher": "Editore sconosciuto",
+  "pluginRepositoryActionRetry": "Riprova",
+  "pluginRepositoryActionOutdated": "Obsoleto",
+  "pluginRepositoryActionInstalled": "Installato",
+  "pluginRepositoryActionInstall": "Installa",
+  "pluginRepositoryActionUnavailable": "Non disponibile",
+  "pluginRepositoryInstallFailed": "Installazione non riuscita.",
+  "pluginRepositoryDownloadFailed": "Download di {name} non riuscito.",
+  "@pluginRepositoryDownloadFailed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "smartReplaceAppliedPlaylistsSummary": "{count, plural, =1{Sostituito in 1 playlist{queue}.} other{Sostituito in {count} playlist{queue}.}}",
+  "@smartReplaceAppliedPlaylistsSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "queue": {
+        "type": "String"
+      }
+    }
+  },
+  "lyricsSearchFieldLabel": "Cerca testi...",
+  "lyricsSearchEmptyPrompt": "Digita un brano o un artista per trovare i testi.",
+  "lyricsSearchNoResults": "Nessun testo trovato per \"{query}\"",
+  "@lyricsSearchNoResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "lyricsSearchApplied": "Testi applicati con successo",
+  "lyricsSearchFetchFailed": "Impossibile recuperare i testi",
+  "lyricsSearchPreview": "Anteprima",
+  "lyricsSearchPreviewTooltip": "Anteprima testi",
+  "lyricsSearchSynced": "SINCRONIZZATI",
+  "lyricsSearchPreviewLoadFailed": "Impossibile caricare i testi.",
+  "lyricsSearchApplyAction": "Applica testi",
+  "lyricsSettingsSearchTitle": "Cerca testi personalizzati",
+  "lyricsSettingsSearchSubtitle": "Trova versioni alternative online",
+  "lyricsSettingsSyncTitle": "Regola sincronizzazione (ritardo/offset)",
+  "lyricsSettingsSyncSubtitle": "Correggi testi troppo veloci o troppo lenti",
+  "lyricsSettingsSaveTitle": "Salva offline",
+  "lyricsSettingsSaveSubtitle": "Conserva questi testi sul dispositivo",
+  "lyricsSettingsDeleteTitle": "Elimina testi salvati",
+  "lyricsSettingsDeleteSubtitle": "Rimuovi i testi offline",
+  "lyricsSyncTapToReset": "Tocca per ripristinare",
+  "upNextTitle": "Prossimi",
+  "upNextItemsInQueue": "{count, plural, =1{1 elemento in coda} other{{count} elementi in coda}}",
+  "@upNextItemsInQueue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "upNextAutoPlay": "Riproduzione automatica",
+  "tooltipCopyToClipboard": "Copia negli appunti",
+  "snackbarCopiedToClipboard": "Copiato negli appunti",
+  "tooltipSongInfo": "Info brano",
+  "snackbarCannotDeletePlayingSong": "Impossibile eliminare il brano in riproduzione",
+  "playerLoopOff": "Disattivato",
+  "playerLoopOne": "Ripeti uno",
+  "playerLoopAll": "Ripeti tutto",
+  "snackbarOpeningAlbumPage": "Apertura della pagina dell'album originale.",
+  "updateAvailableBody": "È disponibile una nuova versione di Bloomee🌸!\n\nVersione: {ver}+{build}",
+  "@updateAvailableBody": {
+    "placeholders": {
+      "ver": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginSnackbarInstalled": "Plugin \"{id}\" installato con successo",
+  "@pluginSnackbarInstalled": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginSnackbarLoaded": "Plugin \"{id}\" caricato",
+  "@pluginSnackbarLoaded": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginSnackbarDeleted": "Plugin \"{id}\" eliminato con successo",
+  "@pluginSnackbarDeleted": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "pluginBootstrapTitle": "Configurazione di Bloomee TV",
+  "pluginBootstrapProgress": "Configurazione del nuovo motore plugin... {percent}%",
+  "@pluginBootstrapProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "pluginBootstrapHint": "Accade solo una volta.",
+  "pluginBootstrapErrorTitle": "Connessione troppo lenta",
+  "pluginBootstrapErrorBody": "Alcuni plugin non è stato possibile installarli. Puoi comunque usare Bloomee — i plugin verranno riprovati al prossimo avvio.",
+  "pluginBootstrapContinue": "Continua comunque"
+}

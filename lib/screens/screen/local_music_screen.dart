@@ -17,6 +17,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class LocalMusicScreen extends StatefulWidget {
   const LocalMusicScreen({super.key});
 
@@ -719,7 +720,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                 ),
               ),
               const SizedBox(width: 12),
-              GestureDetector(
+              TvGestureDetector(
                 onTap: () => setState(() => _dontAskAgain = !_dontAskAgain),
                 child: Text(AppLocalizations.of(context)!.dialogDontAskAgain,
                     style: TextStyle(

@@ -6,6 +6,7 @@ import 'package:Bloomee/utils/load_image.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class ArtistCard extends StatefulWidget {
   final ArtistSummary artist;
   final String pluginId;
@@ -38,7 +39,7 @@ class _ArtistCardState extends State<ArtistCard> {
       child: SizedBox(
         // Set your desired max width here. The circle will scale perfectly to match it.
         width: 160,
-        child: GestureDetector(
+        child: TvGestureDetector(
           onTap: () {
             Navigator.push(
               context,

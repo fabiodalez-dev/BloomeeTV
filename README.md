@@ -1,3 +1,24 @@
+# 📺 Bloomee TV
+
+Bloomee TV is a fork of [BloomeeTunes](https://github.com/HemantKArya/BloomeeTunes) v3.0.4 by HemantKArya, redesigned for Android TV and Google TV and fully usable with the remote. The interface is in Italian.
+
+What it adds on top of Bloomee:
+
+- TV interface: side menu, home made of rows, D-pad focus everywhere, on-screen grid keyboard, built-in voice search.
+- Artist pages with albums, singles, top songs loaded progressively, all songs, similar artists, plus monthly listeners, subscribers, biography and banner from YouTube Music.
+- YouTube Music account: sign in with Google on the TV to get your history, liked songs, playlists, albums, followed artists and personalized home.
+- Jellyfin: browse and stream your own music library (direct stream).
+- Lidarr: "Scarica questo album" sends any album to your Lidarr server.
+- Full media session metadata (title, artist, album, cover) for phone notifications and Google Home.
+
+Server addresses, API keys and the Google sign-in are entered in **Impostazioni** on the TV and stay on the device; nothing is bundled in the APK.
+
+Install the `armeabi-v7a` APK from the Releases page (Chromecast with Google TV and most TV boxes).
+
+License: GPL-2.0, same as the original project. All credit for Bloomee goes to its author; the original README follows.
+
+---
+
 <div align="center">
 
 <img src="./assets/docs/bloomeetunes_new_banner.png" alt="BloomeeTunes Banner" width="100%">

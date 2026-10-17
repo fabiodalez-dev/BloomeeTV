@@ -6,6 +6,7 @@ import 'package:Bloomee/services/db/db_provider.dart';
 import 'package:Bloomee/services/db/dao/settings_dao.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 
 bool isUpdateAvailable(
     String currentVer, String currentBuild, String newVer, String newBuild,
@@ -214,6 +215,18 @@ Future<Map<String, dynamic>> githubUpdate(
 
 /// New public API: try GitHub first, then SourceForge; return a consistent map.
 Future<Map<String, dynamic>> getAppUpdates() async {
+  // Fork TV: gli aggiornamenti della Bloomee ufficiale (firma diversa) non si
+  // possono installare sopra questa versione e ne cancellerebbero le funzioni TV.
+  if (TvMode.isTv) {
+    final packageInfo = await PackageInfo.fromPlatform();
+    return {
+      'results': false,
+      'currVer': packageInfo.version,
+      'currBuild': packageInfo.buildNumber,
+      'newVer': packageInfo.version,
+      'newBuild': packageInfo.buildNumber,
+    };
+  }
   // Try GitHub first, then SourceForge, produce an `updates` map and attach changelogs.
   Map<String, dynamic> updates;
   try {

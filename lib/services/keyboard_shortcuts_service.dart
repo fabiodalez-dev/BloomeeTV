@@ -16,6 +16,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:Bloomee/services/player/player_engine.dart';
 import 'package:Bloomee/routes/app_router.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 
 class KeyboardShortcutsHandler extends StatefulWidget {
   final Widget child;
@@ -102,7 +103,9 @@ class _KeyboardShortcutsHandlerState extends State<KeyboardShortcutsHandler> {
       }
     }
 
-    if (!isAltPressed && !isCtrlPressed && !isShiftPressed) {
+    // Su TV le frecce servono a navigare col telecomando: niente scorciatoie
+    // semplici (brano/volume sulle frecce), restano i tasti multimediali.
+    if (!TvMode.isTv && !isAltPressed && !isCtrlPressed && !isShiftPressed) {
       if (_handleSimpleShortcut(key)) {
         return KeyEventResult.handled;
       }

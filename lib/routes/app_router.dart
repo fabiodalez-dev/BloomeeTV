@@ -12,6 +12,10 @@ import 'package:Bloomee/screens/screen/offline_screen.dart';
 import 'package:Bloomee/screens/screen/local_music_screen.dart';
 import 'package:Bloomee/screens/screen/search_screen.dart';
 import 'package:Bloomee/screens/screen/chart/chart_view.dart';
+import 'package:Bloomee/tv/screens/tv_home_screen.dart';
+import 'package:Bloomee/tv/screens/tv_search_screen.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
+import 'package:Bloomee/tv/tv_shell.dart';
 
 /// Canonical app router configuration.
 ///
@@ -30,15 +34,19 @@ class AppRouter {
         name: RoutePaths.addToPlaylistScreen,
         builder: (context, state) => const AddToPlaylistScreen(),
       ),
-      StatefulShellRoute.indexedStack(
-          builder: (context, state, navigationShell) =>
-              GlobalFooter(navigationShell: navigationShell),
+      StatefulShellRoute(
+          builder: (context, state, navigationShell) => TvMode.isTv
+              ? TvShell(navigationShell: navigationShell)
+              : GlobalFooter(navigationShell: navigationShell),
+          navigatorContainerBuilder: _branchContainer,
           branches: [
             StatefulShellBranch(routes: [
               GoRoute(
                   name: RoutePaths.exploreScreen,
                   path: '/Explore',
-                  builder: (context, state) => const ExploreScreen(),
+                  builder: (context, state) => TvMode.isTv
+                      ? const TvHomeScreen()
+                      : const ExploreScreen(),
                   routes: [
                     GoRoute(
                         name: RoutePaths.chartScreen,
@@ -91,6 +99,7 @@ class AppRouter {
                 name: RoutePaths.searchScreen,
                 path: '/Search',
                 builder: (context, state) {
+                  if (TvMode.isTv) return const TvSearchScreen();
                   if (state.uri.queryParameters['query'] != null) {
                     return SearchScreen(
                       searchQuery:
@@ -119,6 +128,24 @@ class AppRouter {
           ])
     ],
   );
+
+  /// Come `StatefulShellRoute.indexedStack`, ma i rami non visibili sono
+  /// esclusi dal focus: sul telecomando altrimenti le frecce potevano finire
+  /// su elementi di schermate nascoste.
+  static Widget _branchContainer(BuildContext context,
+      StatefulNavigationShell shell, List<Widget> children) {
+    final current = shell.currentIndex;
+    return IndexedStack(
+      index: current,
+      children: [
+        for (var i = 0; i < children.length; i++)
+          ExcludeFocus(
+            excluding: i != current,
+            child: TickerMode(enabled: i == current, child: children[i]),
+          ),
+      ],
+    );
+  }
 }
 
 /// Backward-compat alias for [AppRouter].

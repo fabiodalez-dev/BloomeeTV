@@ -1,6 +1,7 @@
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class ToggleButton extends StatefulWidget {
   final String label;
   final ValueChanged<bool>
@@ -60,7 +61,7 @@ class _ToggleButtonState extends State<ToggleButton>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: () {
         updateState(!_isActive);
       },

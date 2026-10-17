@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class VolumeDragController extends StatefulWidget {
   final Widget child;
   const VolumeDragController({super.key, required this.child});
@@ -94,7 +95,7 @@ class _VolumeDragControllerState extends State<VolumeDragController> {
           setVolume(_volume);
         }
       },
-      child: GestureDetector(
+      child: TvGestureDetector(
         onVerticalDragStart: _onDragStart,
         onVerticalDragUpdate: _updateVolume,
         onVerticalDragEnd: _onDragEnd,

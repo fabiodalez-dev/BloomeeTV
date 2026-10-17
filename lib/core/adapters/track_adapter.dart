@@ -27,11 +27,23 @@ MediaItem trackToMediaItem(Track track) {
     album: track.album?.title ?? '',
     // audio_service_win C++ crashes on null album (std::get<std::string> on null variant).
     artist: artistStr,
-    artUri: _safeArtUri(track.thumbnail.url),
+    artUri: _safeArtUri(track.thumbnail.urlHigh ?? track.thumbnail.url),
+    // Campi "display": li usano le notifiche e i controlli remoti (telefono
+    // collegato al Chromecast, Google Home) invece di title/artist.
+    displayTitle: track.title,
+    displaySubtitle: artistStr,
+    displayDescription: track.album?.title,
     duration: track.durationMs != null
         ? Duration(milliseconds: track.durationMs!.toInt())
         : null,
     extras: <String, dynamic>{
+      // Chiavi MediaMetadata standard di Android (audio_service le copia
+      // tali e quali nella sessione).
+      'android.media.metadata.ALBUM_ARTIST': artistStr,
+      if (_safeArtUri(track.thumbnail.urlHigh ?? track.thumbnail.url) != null)
+        'android.media.metadata.ART_URI': (track.thumbnail.urlHigh ?? track.thumbnail.url),
+      if (_safeArtUri(track.thumbnail.urlHigh ?? track.thumbnail.url) != null)
+        'android.media.metadata.ALBUM_ART_URI': (track.thumbnail.urlHigh ?? track.thumbnail.url),
       'isExplicit': track.isExplicit,
       'thumbnailUrl': track.thumbnail.url,
       'thumbnailUrlLow': track.thumbnail.urlLow,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 /// Defines the style of gradient generation
 enum GradientStyle {
   /// Creates a lighter, airy start. Best for cool colors (Blue, Cyan, Green).
@@ -471,7 +472,7 @@ class _GradientProgressBarState extends State<GradientProgressBar>
   }
 
   Widget _buildProgressBar(BoxConstraints constraints, TextStyle labelStyle) {
-    return GestureDetector(
+    return TvGestureDetector(
       behavior: HitTestBehavior.opaque,
       onHorizontalDragStart: (details) =>
           _handleDragStart(details, constraints),

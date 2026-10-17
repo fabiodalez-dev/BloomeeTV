@@ -16,6 +16,7 @@ import 'package:go_router/go_router.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class MiniPlayerWidget extends StatelessWidget {
   const MiniPlayerWidget({Key? key}) : super(key: key);
 
@@ -157,7 +158,7 @@ class _MiniPlayerCardState extends State<MiniPlayerCard>
     final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
     final thumbUrl = song.thumbnail.urlLow ?? song.thumbnail.url;
 
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
         context.read<PlayerOverlayCubit>().showPlayer();
@@ -486,7 +487,7 @@ class _PlayPauseButton extends StatelessWidget {
       );
     }
 
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
         state.isPlaying

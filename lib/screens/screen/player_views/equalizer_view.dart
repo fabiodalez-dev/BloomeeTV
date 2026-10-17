@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:ui' as ui;
 
+import 'package:Bloomee/tv/tv_focus.dart';
 const Map<String, List<double>> _kPresets = {
   'Flat': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   'Acoustic': [3, 2, 1, 0, 0, 0, 1, 2, 2, 3],
@@ -453,7 +454,7 @@ class _EqualizerViewState extends State<EqualizerView>
                                       () => _isGraphInteractive = false),
                                   child: LayoutBuilder(
                                     builder: (context, constraints) {
-                                      return GestureDetector(
+                                      return TvGestureDetector(
                                         behavior: HitTestBehavior.opaque,
                                         onPanDown: (d) => _handleGraphPanStart(
                                             d, constraints),
@@ -583,7 +584,7 @@ class _EqSourceOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

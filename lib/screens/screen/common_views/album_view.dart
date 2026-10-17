@@ -19,6 +19,8 @@ import 'package:Bloomee/screens/widgets/song_tile.dart';
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:Bloomee/utils/load_image.dart';
 import 'package:flutter/material.dart';
+import 'package:Bloomee/tv/lidarr_action.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -550,7 +552,18 @@ class _AlbumHeaderContent extends StatelessWidget {
               : l10n.tooltipSaveToLibrary,
           onTap: onToggleSave,
         ),
-        if (url != null)
+        if (TvMode.isTv)
+          _PremiumCircularButton(
+            icon: Icons.cloud_download_rounded,
+            isActive: false,
+            tooltip: 'Scarica questo album sul server (Lidarr)',
+            onTap: () => downloadAlbumWithLidarr(
+              context,
+              artist: artists,
+              album: title,
+            ),
+          ),
+        if (url != null && !TvMode.isTv)
           _PremiumCircularButton(
             icon: MingCute.external_link_line,
             isActive: false,

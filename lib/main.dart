@@ -65,6 +65,9 @@ import 'package:Bloomee/services/onboarding_service.dart';
 import 'package:Bloomee/services/plugin_bootstrap_service.dart';
 import 'package:Bloomee/plugins/services/plugin_repository_service.dart';
 import 'package:Bloomee/services/shared_url_resolver_service.dart';
+import 'package:Bloomee/tv/tv_focus.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
+import 'package:Bloomee/tv/tv_config.dart';
 
 void processIncomingIntent(SharedMedia sharedMedia) {
   if (sharedMedia.content != null && isUrl(sharedMedia.content!)) {
@@ -153,11 +156,16 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GestureBinding.instance.resamplingEnabled = true;
   MediaKit.ensureInitialized();
+  await TvMode.init();
   await bootstrapApp();
+  if (TvMode.isTv) {
+    await TvConfig.load();
+    await TvConfig.importFromFile();
+  }
   setHighRefreshRate();
   await setupPlayerCubit();
   DiscordService.initialize();
-  runApp(const MyApp());
+  runApp(const TvRoot(child: MyApp()));
 }
 
 class MyApp extends StatefulWidget {
@@ -495,7 +503,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       ),
                       scaffoldMessengerKey: SnackbarService.messengerKey,
                       routerConfig: GlobalRoutes.globalRouter,
-                      theme: Default_Theme().defaultThemeData,
+                      theme: tvTheme(Default_Theme().defaultThemeData),
+                      actions: tvActions(),
                       scrollBehavior: CustomScrollBehavior(),
                       debugShowCheckedModeBanner: false,
                     ),

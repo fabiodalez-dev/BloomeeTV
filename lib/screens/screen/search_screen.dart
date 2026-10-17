@@ -29,6 +29,7 @@ import 'package:Bloomee/src/rust/api/plugin/commands.dart';
 import 'package:Bloomee/src/rust/api/plugin/plugin_info.dart';
 import 'package:Bloomee/src/rust/api/plugin/models.dart' as plugin_models;
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class SearchScreen extends StatefulWidget {
   final String searchQuery;
   const SearchScreen({
@@ -211,7 +212,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _activePluginIdNotifier.value = activeId;
         _contentBloc.add(SetActiveContentPlugin(pluginId: activeId));
       },
-      child: GestureDetector(
+      child: TvGestureDetector(
         onTap: () {
           FocusManager.instance.primaryFocus?.unfocus();
           _closeSuggestionPanel();
@@ -989,7 +990,7 @@ class _SuggestionTile extends StatelessWidget {
                               fontSize: 15)
                           .merge(Default_Theme.secondoryTextStyle))),
               if (isHistory)
-                GestureDetector(
+                TvGestureDetector(
                     onTap: () => context
                         .read<SearchSuggestionBloc>()
                         .add(SearchSuggestionClear(suggestion)),
@@ -998,7 +999,7 @@ class _SuggestionTile extends StatelessWidget {
                             Default_Theme.primaryColor1.withValues(alpha: 0.4),
                         size: 18))
               else
-                GestureDetector(
+                TvGestureDetector(
                     onTap: () => onPopulate(
                         suggestion.trim().replaceAll(RegExp(r'\s+'), ' ')),
                     child: Icon(MingCute.arrow_left_up_line,

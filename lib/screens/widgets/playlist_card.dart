@@ -5,6 +5,7 @@ import 'package:Bloomee/utils/load_image.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class PlaylistCard extends StatefulWidget {
   final PlaylistSummary playlist;
   final String pluginId;
@@ -36,7 +37,7 @@ class _PlaylistCardState extends State<PlaylistCard> {
   Widget build(BuildContext context) {
     return SizedBox(
       width: widget.cardWidth,
-      child: GestureDetector(
+      child: TvGestureDetector(
         onTap: () {
           Navigator.push(
             context,

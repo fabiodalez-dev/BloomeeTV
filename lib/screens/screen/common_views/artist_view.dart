@@ -20,6 +20,8 @@ import 'package:Bloomee/screens/widgets/song_tile.dart';
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:Bloomee/utils/load_image.dart';
 import 'package:flutter/material.dart';
+import 'package:Bloomee/tv/screens/tv_artist_screen.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -43,6 +45,7 @@ class _ArtistViewState extends State<ArtistView> {
     super.initState();
     _contentBloc = ContentBloc(pluginService: ServiceLocator.pluginService);
 
+    if (TvMode.isTv) return; // su TV la pagina è TvArtistScreen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!context.read<PluginBloc>().state.isPluginLoaded(widget.pluginId)) {
@@ -116,6 +119,9 @@ class _ArtistViewState extends State<ArtistView> {
 
   @override
   Widget build(BuildContext context) {
+    if (TvMode.isTv) {
+      return TvArtistScreen(artist: widget.artist, pluginId: widget.pluginId);
+    }
     return Scaffold(
       backgroundColor: Default_Theme.themeColor,
       extendBodyBehindAppBar: true,

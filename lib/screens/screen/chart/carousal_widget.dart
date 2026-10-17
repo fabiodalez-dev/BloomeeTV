@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 /// Chart carousel widget that displays charts from loaded chart provider plugins.
 class CaraouselWidget extends StatefulWidget {
   const CaraouselWidget({super.key});
@@ -111,7 +112,7 @@ class _CaraouselWidgetState extends State<CaraouselWidget> {
                       itemCount: visibleCharts.length,
                       itemBuilder: (context, index, realIndex) {
                         final chart = visibleCharts[index];
-                        return GestureDetector(
+                        return TvGestureDetector(
                           onTap: () {
                             Navigator.push(
                               context,

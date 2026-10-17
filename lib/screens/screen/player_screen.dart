@@ -15,6 +15,7 @@ import 'package:Bloomee/screens/screen/player_views/segments_sheet.dart';
 import 'package:Bloomee/services/bloomee_player.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -31,6 +32,7 @@ import '../../blocs/media_player/bloomee_player_cubit.dart';
 import '../../blocs/mini_player/mini_player_cubit.dart';
 import 'player_views/fullscreen_lyrics_view.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class AudioPlayerView extends StatefulWidget {
   const AudioPlayerView({super.key});
 
@@ -89,7 +91,13 @@ class _AudioPlayerViewState extends State<AudioPlayerView>
           },
         ),
         actions: [
-          IconButton(
+          // I brani Jellyfin non hanno segmenti: su TV il pulsante sparisce.
+          StreamBuilder<MediaItem?>(
+            stream: musicPlayer.mediaItem,
+            builder: (context, snap) => (TvMode.isTv &&
+                    (snap.data?.id.startsWith('jellyfin::') ?? false))
+                ? const SizedBox.shrink()
+                : IconButton(
             onPressed: () {
               final mi = musicPlayer.mediaItem.valueOrNull;
               if (mi != null) {
@@ -103,6 +111,7 @@ class _AudioPlayerViewState extends State<AudioPlayerView>
             },
             icon: const Icon(MingCute.list_check_3_line,
                 size: 22, color: Default_Theme.primaryColor1),
+          ),
           ),
           IconButton(
             onPressed: () =>
@@ -604,7 +613,12 @@ class _PlayerControlsRow extends StatelessWidget {
           ),
         ),
         _buildControlColumn(
-          top: const _PlayPauseButton(),
+          top: Focus(
+            focusNode: tvPlayerAnchor,
+            canRequestFocus: false,
+            skipTraversal: true,
+            child: const _PlayPauseButton(),
+          ),
           bottom: const SizedBox(height: 40),
         ),
         _buildControlColumn(
@@ -750,7 +764,7 @@ class _PlayPauseButton extends StatelessWidget {
           child = const SizedBox();
         }
 
-        return GestureDetector(
+        return TvGestureDetector(
           onTap: () {
             if (state.isCompleted) {
               musicPlayer.seek(Duration.zero);

@@ -21,6 +21,7 @@ import 'package:Bloomee/screens/screen/home_views/plugin_repository_view.dart';
 import 'package:Bloomee/plugins/blocs/repository/plugin_repository_cubit.dart';
 import 'package:Bloomee/plugins/utils/plugin_constants.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class PluginManagerScreen extends StatefulWidget {
   const PluginManagerScreen({super.key});
 
@@ -660,7 +661,7 @@ class _CustomSwitchState extends State<_CustomSwitch> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: _handleTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedOpacity(

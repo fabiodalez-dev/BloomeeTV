@@ -3,6 +3,7 @@ import 'package:Bloomee/utils/load_image.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class SquareImgCard extends StatefulWidget {
   final String imgPath;
   final String? fallbackImgPath;
@@ -47,7 +48,7 @@ class _SquareImgCardState extends State<SquareImgCard> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: GestureDetector(
+      child: TvGestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
         onTapDown: _isInteractive ? _onTapDown : null,

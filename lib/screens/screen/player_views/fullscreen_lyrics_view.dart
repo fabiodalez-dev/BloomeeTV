@@ -19,6 +19,7 @@ import 'package:icons_plus/icons_plus.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class FullscreenLyricsView extends StatefulWidget {
   const FullscreenLyricsView({super.key});
 
@@ -133,7 +134,7 @@ class _FullscreenLyricsViewState extends State<FullscreenLyricsView> {
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: false,
-      body: GestureDetector(
+      body: TvGestureDetector(
         onTap: _toggleControls,
         behavior: HitTestBehavior.translucent,
         child: Stack(
@@ -207,7 +208,7 @@ class _FullscreenLyricsViewState extends State<FullscreenLyricsView> {
               top: _showControls ? 0 : -150,
               left: 0,
               right: 0,
-              child: GestureDetector(
+              child: TvGestureDetector(
                 onTap: () {},
                 child: _buildTopBar(bloomeePlayerCubit, isDesktop),
               ),
@@ -218,7 +219,7 @@ class _FullscreenLyricsViewState extends State<FullscreenLyricsView> {
               bottom: _showControls ? 0 : -200,
               left: 0,
               right: 0,
-              child: GestureDetector(
+              child: TvGestureDetector(
                 onTap: () {},
                 child: _buildBottomControls(bloomeePlayerCubit, isDesktop),
               ),
@@ -233,7 +234,7 @@ class _FullscreenLyricsViewState extends State<FullscreenLyricsView> {
                   : -100,
               left: 0,
               right: 0,
-              child: GestureDetector(
+              child: TvGestureDetector(
                 onTap: () {},
                 child: _buildSyncControls(),
               ),
@@ -404,7 +405,7 @@ class _FullscreenLyricsViewState extends State<FullscreenLyricsView> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  GestureDetector(
+                  TvGestureDetector(
                     onTapDown: (_) => _startOffsetChange(-50),
                     onTapUp: (_) => _stopOffsetChange(),
                     onTapCancel: () => _stopOffsetChange(),
@@ -439,7 +440,7 @@ class _FullscreenLyricsViewState extends State<FullscreenLyricsView> {
                       ),
                     ),
                   ),
-                  GestureDetector(
+                  TvGestureDetector(
                     onTapDown: (_) => _startOffsetChange(50),
                     onTapUp: (_) => _stopOffsetChange(),
                     onTapCancel: () => _stopOffsetChange(),
@@ -534,7 +535,7 @@ class _FullscreenLyricsViewState extends State<FullscreenLyricsView> {
                 ],
               ),
               const SizedBox(height: 24),
-              GestureDetector(
+              TvGestureDetector(
                 onTap: () => _upNextPanelController.toggle(),
                 child: Container(
                   padding:
@@ -769,7 +770,7 @@ class _FullscreenSyncedLyricsState extends State<FullscreenSyncedLyrics> {
                 ? lyrics[index + 1].start
                 : lyric.start + const Duration(seconds: 5);
 
-            return GestureDetector(
+            return TvGestureDetector(
               onTap: () {
                 widget.onInteraction?.call();
                 context

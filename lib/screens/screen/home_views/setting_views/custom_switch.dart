@@ -3,6 +3,7 @@
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class BloomeeSwitch extends StatefulWidget {
   final bool value;
   final VoidCallback onChanged;
@@ -45,7 +46,7 @@ class _BloomeeSwitchState extends State<BloomeeSwitch> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvGestureDetector(
       onTap: _handleTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(

@@ -6,6 +6,7 @@ import 'package:Bloomee/utils/load_image.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'package:Bloomee/tv/tv_focus.dart';
 class AlbumCard extends StatefulWidget {
   final AlbumSummary album;
   final String pluginId;
@@ -31,7 +32,7 @@ class _AlbumCardState extends State<AlbumCard> {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 168),
-      child: GestureDetector(
+      child: TvGestureDetector(
         onTap: () {
           Navigator.push(
             context,
