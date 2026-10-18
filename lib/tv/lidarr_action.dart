@@ -19,7 +19,9 @@ Future<void> showDownloadMenu(
   required String album,
   Track? track,
   Future<List<Track>> Function()? albumTracks,
+  String? listTitle,
 }) async {
+  final name = listTitle ?? (album.isNotEmpty ? album : track?.title ?? '');
   final choice = await showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -28,7 +30,7 @@ Future<void> showDownloadMenu(
         const Icon(Icons.download_rounded, color: TvColors.accent),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(track?.title ?? album,
+          child: Text(track?.title ?? name,
               style: TvText.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
       ]),
@@ -39,24 +41,24 @@ Future<void> showDownloadMenu(
             ListTile(
               autofocus: true,
               leading: const Icon(Icons.cloud_download_rounded, color: TvColors.text),
-              title: const Text('Scarica l\'album sul server', style: TextStyle(color: TvColors.text)),
-              subtitle: Text('Lidarr · $album', style: const TextStyle(color: TvColors.textDim)),
+              title: const Text('Lidarr', style: TextStyle(color: TvColors.text)),
+              subtitle: Text('Scarica l\'album "$album" sul server: poi lo trovi in La tua musica (Jellyfin)', style: const TextStyle(color: TvColors.textDim)),
               onTap: () => Navigator.pop(ctx, 'lidarr'),
             ),
           if (track != null)
             ListTile(
               autofocus: album.isEmpty,
               leading: const Icon(Icons.download_for_offline_rounded, color: TvColors.text),
-              title: const Text('Scarica il brano sul Chromecast', style: TextStyle(color: TvColors.text)),
-              subtitle: const Text('Per ascoltarlo senza rete, in Scaricati', style: TextStyle(color: TvColors.textDim)),
+              title: const Text('Locale', style: TextStyle(color: TvColors.text)),
+              subtitle: const Text('Scarica il brano sul Chromecast, in Scaricati', style: TextStyle(color: TvColors.textDim)),
               onTap: () => Navigator.pop(ctx, 'track'),
             ),
           if (albumTracks != null)
             ListTile(
               autofocus: album.isEmpty && track == null,
               leading: const Icon(Icons.library_music_rounded, color: TvColors.text),
-              title: const Text('Scarica l\'album sul Chromecast', style: TextStyle(color: TvColors.text)),
-              subtitle: const Text('Tutti i brani, in Scaricati', style: TextStyle(color: TvColors.textDim)),
+              title: const Text('Locale', style: TextStyle(color: TvColors.text)),
+              subtitle: Text('Scarica tutti i brani di "$name" sul Chromecast, in Scaricati', style: const TextStyle(color: TvColors.textDim)),
               onTap: () => Navigator.pop(ctx, 'album'),
             ),
         ]),
@@ -74,17 +76,25 @@ Future<void> showDownloadMenu(
     case 'track':
       await downloader.downloadSong(track!);
     case 'album':
-      SnackbarService.showMessage('Preparo i brani di "$album"…');
-      final tracks = await albumTracks!();
-      if (tracks.isEmpty) {
-        SnackbarService.showMessage('Non trovo i brani di "$album".');
-        return;
-      }
-      for (final t in tracks) {
-        await downloader.downloadSong(t, showSnackbar: false);
-      }
-      SnackbarService.showMessage('Scarico ${tracks.length} brani di "$album" sul Chromecast: li trovi in Scaricati.',
-          duration: const Duration(seconds: 5));
+      SnackbarService.showMessage('Preparo i brani di "$name"…');
+      final list = await albumTracks!();
+      if (!context.mounted) return;
+      await downloadTracksToDevice(context, list, name);
+  }
+}
+
+/// Scarica tutti i brani (di un album o una playlist) sul dispositivo con il
+/// download di Bloomee: finiscono in "Scaricati".
+Future<void> downloadTracksToDevice(BuildContext context, List<Track> tracks, String title) async {
+  if (tracks.isEmpty) {
+    SnackbarService.showMessage('Non trovo i brani di "$title".');
+    return;
+  }
+  final downloader = context.read<DownloaderCubit>();
+  SnackbarService.showMessage('Scarico ${tracks.length} brani di "$title" sul Chromecast: li trovi in Scaricati.',
+      duration: const Duration(seconds: 5));
+  for (final t in List.of(tracks)) {
+    await downloader.downloadSong(t, showSnackbar: false);
   }
 }
 

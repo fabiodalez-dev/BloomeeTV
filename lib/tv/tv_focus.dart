@@ -56,6 +56,10 @@ class _TvFocusableState extends State<TvFocusable> {
   bool _focused = false;
   Timer? _holdTimer;
   bool _longFired = false;
+  // OK premuto su questo elemento: il rilascio conta solo in questo caso
+  // (dopo la chiusura di un dialogo il focus torna qui e riceverebbe il
+  // rilascio del tasto premuto nel dialogo, riaprendolo).
+  bool _pressed = false;
 
   @override
   void dispose() {
@@ -69,6 +73,7 @@ class _TvFocusableState extends State<TvFocusable> {
       return KeyEventResult.ignored;
     }
     if (event is KeyDownEvent) {
+      _pressed = true;
       _longFired = false;
       _holdTimer?.cancel();
       if (widget.onLongPress != null) {
@@ -80,6 +85,7 @@ class _TvFocusableState extends State<TvFocusable> {
       return KeyEventResult.handled;
     }
     if (event is KeyRepeatEvent) {
+      if (!_pressed) return KeyEventResult.handled;
       // Android ripete il tasto quando è tenuto premuto: è già un long press.
       if (widget.onLongPress != null && !_longFired) {
         _holdTimer?.cancel();
@@ -90,7 +96,9 @@ class _TvFocusableState extends State<TvFocusable> {
     }
     if (event is KeyUpEvent) {
       _holdTimer?.cancel();
-      if (!_longFired) widget.onTap?.call();
+      final wasPressed = _pressed;
+      _pressed = false;
+      if (wasPressed && !_longFired) widget.onTap?.call();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;

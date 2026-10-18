@@ -360,12 +360,15 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
                         label: 'Casuale',
                         onTap: tracks.isEmpty ? null : () => playYtItems(context, tracks, 0, title, shuffle: true),
                       ),
-                      if (isAlbum)
-                        TvPillButton(
-                          icon: Icons.cloud_download_rounded,
-                          label: 'Scarica album',
-                          onTap: () => showDownloadMenu(context, artist: artist, album: title, albumTracks: () async => [for (final t in tracks) t.toTrack()]),
-                        ),
+                      TvPillButton(
+                        icon: Icons.download_rounded,
+                        label: 'Scarica',
+                        onTap: () => showDownloadMenu(context,
+                            artist: artist,
+                            album: isAlbum ? title : '',
+                            listTitle: title,
+                            albumTracks: () async => [for (final t in tracks) t.toTrack()]),
+                      ),
                     ]),
                     const SizedBox(height: 22),
                     for (var i = 0; i < tracks.length; i++)

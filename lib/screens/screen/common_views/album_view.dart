@@ -1,4 +1,5 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'package:Bloomee/tv/ui/tv_widgets.dart';
 import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:ui';
 
@@ -554,16 +555,11 @@ class _AlbumHeaderContent extends StatelessWidget {
           onTap: onToggleSave,
         ),
         if (TvMode.isTv)
-          _PremiumCircularButton(
-            icon: Icons.cloud_download_rounded,
-            isActive: false,
-            tooltip: 'Scarica questo album',
-            onTap: () => showDownloadMenu(
-              context,
-              artist: artists,
-              album: title,
-              albumTracks: () async => List.of(tracks),
-            ),
+          TvPillButton(
+            icon: Icons.download_rounded,
+            label: 'Scarica',
+            onTap: () => showDownloadMenu(context,
+                artist: artists, album: title, albumTracks: () async => List.of(tracks)),
           ),
         if (url != null && !TvMode.isTv)
           _PremiumCircularButton(

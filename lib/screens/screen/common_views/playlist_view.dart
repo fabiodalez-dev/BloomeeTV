@@ -1,5 +1,8 @@
 import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:ui';
+import 'package:Bloomee/tv/lidarr_action.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
+import 'package:Bloomee/tv/ui/tv_widgets.dart';
 
 import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
 import 'package:Bloomee/core/di/service_locator.dart';
@@ -527,7 +530,14 @@ class _PlaylistHeaderContent extends StatelessWidget {
           tooltip: isSaved ? 'Remove from Library' : 'Save to Library',
           onTap: onToggleSave,
         ),
-        if (url != null)
+        if (TvMode.isTv)
+          TvPillButton(
+            icon: Icons.download_rounded,
+            label: 'Scarica',
+            onTap: () => showDownloadMenu(context,
+                artist: '', album: '', listTitle: title, albumTracks: () async => List.of(tracks)),
+          ),
+        if (url != null && !TvMode.isTv)
           _PremiumCircularButton(
             icon: MingCute.external_link_line,
             isActive: false,
