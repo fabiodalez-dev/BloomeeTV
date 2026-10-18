@@ -277,6 +277,7 @@ class _TvShellState extends State<TvShell> {
       if (p == null || p is FocusScopeNode) return KeyEventResult.ignored;
       if (p.context?.findAncestorStateOfType<EditableTextState>() != null)
         return KeyEventResult.ignored;
+      if (tvVerticalBusy) return KeyEventResult.handled;
       // Giù: elemento sotto; in fondo alla pagina, la barra del brano.
       if (tvMoveVertically(p, down: true)) return KeyEventResult.handled;
       if (Scrollable.maybeOf(p.context!) == null &&
@@ -288,12 +289,9 @@ class _TvShellState extends State<TvShell> {
       final sc = Scrollable.maybeOf(p.context!);
       if (sc != null && sc.position.extentAfter > 1) {
         final pos = sc.position;
-        pos
-            .animateTo((pos.pixels + pos.viewportDimension * 0.5).clamp(0, pos.maxScrollExtent),
-                duration: const Duration(milliseconds: 160), curve: Curves.easeOut)
-            .then((_) => WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (p.hasPrimaryFocus) tvMoveVertically(p, down: true);
-                }));
+        tvScrollThen(pos, pos.pixels + pos.viewportDimension * 0.5, () {
+          if (p.hasPrimaryFocus) tvMoveVertically(p, down: true);
+        });
         return KeyEventResult.handled;
       }
       if (e is KeyDownEvent && _focusBar()) return KeyEventResult.handled;

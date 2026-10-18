@@ -232,6 +232,21 @@ class YtMusicClient {
     );
   }
 
+  /// Filtri della ricerca di YouTube Music (gli stessi del sito).
+  static const searchParams = {
+    'song': 'EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D',
+    'album': 'EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D',
+    'artist': 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D',
+    'playlist': 'EgeKAQQoADgBagoQAxAEEAoQCRAF',
+  };
+
+  /// Ricerca senza filtro: le sezioni come sul sito (Brani, Album, Artisti…).
+  Future<List<YtSection>> searchAll(String query) async => parseSections(await _post('search', {'query': query}));
+
+  /// Ricerca filtrata per tipo ('song', 'album', 'artist', 'playlist').
+  Future<List<YtItem>> searchType(String query, String kind) async =>
+      _flatItems(await _post('search', {'query': query, 'params': searchParams[kind]}));
+
   /// Cerca il canale di un artista per nome (quando l'id del plugin non è un UC…).
   Future<String?> findArtistChannel(String name) async {
     final d = await _post('search', {'query': name, 'params': 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D'});

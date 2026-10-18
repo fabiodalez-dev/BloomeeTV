@@ -410,8 +410,10 @@ class _TvRootState extends State<TvRoot> {
   // Pagina appena aperta: il focus sta sul suo contenitore, invisibile.
   // Appena la pagina ha qualcosa, lo porto sul primo elemento.
   FocusScopeNode? _pendingScope;
+  DateTime _pageOpened = DateTime(0);
   void _focusIntoScope(FocusScopeNode scope) {
     if (identical(_pendingScope, scope)) return;
+    _pageOpened = DateTime.now();
     _pendingScope = scope;
     for (final ms in const [80, 400, 900, 1800, 3500, 6000]) {
       Future.delayed(Duration(milliseconds: ms), () {
@@ -473,6 +475,12 @@ class _TvRootState extends State<TvRoot> {
   /// Se nessun elemento ha il focus, la prima freccia lo porta al primo
   /// elemento interattivo della schermata invece di non fare nulla.
   bool _onKey(KeyEvent event) {
+    // Doppio OK: il secondo arriva sulla pagina appena aperta e farebbe
+    // partire il suo primo pulsante. Subito dopo l'apertura lo ignoro.
+    if (kTvSelectKeys.contains(event.logicalKey) &&
+        DateTime.now().difference(_pageOpened) < const Duration(milliseconds: 600)) {
+      return true;
+    }
     if ((event is! KeyDownEvent && event is! KeyRepeatEvent) ||
         !_arrows.contains(event.logicalKey)) {
       return false;
@@ -624,7 +632,25 @@ bool _insideScrollable(BuildContext ctx, ScrollableState target) {
   return false;
 }
 
+// Una pagina che deve prima scorrere (righe non ancora costruite) completa il
+// passo al frame successivo: fino ad allora le altre pressioni vengono
+// ignorate, così premere due volte di fila non fa mai due salti.
+bool _vBusy = false;
+bool get tvVerticalBusy => _vBusy;
+
+/// Scorre subito a [target] e, appena la pagina è ricostruita, esegue [then].
+void tvScrollThen(ScrollPosition pos, double target, VoidCallback then) {
+  _vBusy = true;
+  pos.jumpTo(target.clamp(pos.minScrollExtent, pos.maxScrollExtent).toDouble());
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _vBusy = false;
+    then();
+  });
+  WidgetsBinding.instance.scheduleFrame();
+}
+
 bool tvMoveVertically(FocusNode current, {required bool down}) {
+  if (_vBusy) return true;
   final ctx = current.context;
   if (ctx == null || !ctx.mounted) return false;
   // Anche gli elementi fuori dalle liste (es. la freccia indietro in alto)
@@ -656,12 +682,9 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
   final more = pos != null && (down ? pos.extentAfter > 1 : pos.extentBefore > 1);
   if (pos != null && inSame.isEmpty && more && axisDirectionToAxis(scrollable!.axisDirection) == Axis.vertical) {
     final step = pos.viewportDimension * 0.45 * (down ? 1 : -1);
-    pos
-        .animateTo((pos.pixels + step).clamp(pos.minScrollExtent, pos.maxScrollExtent),
-            duration: const Duration(milliseconds: 160), curve: Curves.easeOut)
-        .then((_) => WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (current.hasPrimaryFocus) tvMoveVertically(current, down: down);
-            }));
+    tvScrollThen(pos, pos.pixels + step, () {
+      if (current.hasPrimaryFocus) tvMoveVertically(current, down: down);
+    });
     return true;
   }
   if (inSame.isNotEmpty) {

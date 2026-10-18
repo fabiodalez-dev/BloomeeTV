@@ -13,6 +13,8 @@ import 'package:Bloomee/screens/screen/common_views/playlist_view.dart';
 import 'package:Bloomee/screens/widgets/snackbar.dart';
 import 'package:Bloomee/src/rust/api/plugin/commands.dart' show ContentSearchFilter;
 import 'package:Bloomee/tv/connectors/jellyfin_client.dart';
+import 'package:Bloomee/tv/connectors/ytmusic_account.dart';
+import 'package:Bloomee/tv/screens/tv_youtube_screen.dart' show ytCard;
 import 'package:Bloomee/tv/lidarr_action.dart';
 import 'package:Bloomee/tv/screens/tv_jellyfin_screen.dart';
 import 'package:Bloomee/tv/tv_config.dart';
@@ -129,6 +131,68 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
   ContentSearchFilter _filter = ContentSearchFilter.all;
   String _last = '';
   List<JfItem> _jf = const [];
+  // Risultati di YouTube Music (brani, album, artisti, playlist veri, come
+  // nell'app YouTube Music). La sorgente di Bloomee resta solo di riserva.
+  List<YtSection>? _ytAll;
+  List<YtItem>? _ytItems;
+  bool _ytLoading = false;
+  bool _ytFailed = false;
+  int _gen = 0;
+
+  static String _kindOf(ContentSearchFilter f) => switch (f) {
+        ContentSearchFilter.track => 'song',
+        ContentSearchFilter.album => 'album',
+        ContentSearchFilter.artist => 'artist',
+        _ => 'playlist',
+      };
+
+  Future<void> _ytSearch(String q) async {
+    final gen = ++_gen;
+    setState(() {
+      _ytLoading = true;
+      _ytFailed = false;
+    });
+    try {
+      final c = TvConfig.youtube;
+      if (_filter == ContentSearchFilter.all) {
+        // Come YouTube Music: una riga per tipo, ognuna con i risultati veri
+        // di quel tipo (la ricerca "tutto" del sito è una lista mescolata).
+        const kinds = [('artist', 'Artisti'), ('album', 'Album'), ('song', 'Brani'), ('playlist', 'Playlist')];
+        final res = await Future.wait(kinds.map((k) => c
+            .searchType(q, k.$1)
+            .then((r) => r.where((i) => i.kind == k.$1).toList())
+            .catchError((_) => <YtItem>[])));
+        if (res.every((r) => r.isEmpty)) throw Exception('nessun risultato');
+        if (!mounted || gen != _gen) return;
+        setState(() {
+          _ytAll = [for (var i = 0; i < kinds.length; i++) if (res[i].isNotEmpty) YtSection(kinds[i].$2, res[i])];
+          _ytItems = null;
+          _ytLoading = false;
+        });
+      } else {
+        final kind = _kindOf(_filter);
+        final r = await c.searchType(q, kind);
+        final only = r.where((i) => i.kind == kind).toList();
+        if (!mounted || gen != _gen) return;
+        setState(() {
+          _ytItems = only;
+          _ytAll = null;
+          _ytLoading = false;
+        });
+      }
+    } catch (_) {
+      if (!mounted || gen != _gen) return;
+      setState(() {
+        _ytLoading = false;
+        _ytFailed = true;
+      });
+      final id = _pluginId();
+      if (id != null) {
+        _content.add(SetActiveContentPlugin(pluginId: id));
+        _content.add(SearchContent(query: q, filter: _filter));
+      }
+    }
+  }
 
   static const _filters = {
     ContentSearchFilter.all: 'Tutto',
@@ -163,11 +227,7 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
     final q = _query.text.trim();
     if (q.isEmpty) return;
     _last = q;
-    final id = _pluginId();
-    if (id != null) {
-      _content.add(SetActiveContentPlugin(pluginId: id));
-      _content.add(SearchContent(query: q, filter: _filter));
-    }
+    _ytSearch(q);
     final jf = TvConfig.jellyfin;
     if (jf != null) {
       jf.search(q, limit: 30).then((r) {
@@ -248,6 +308,59 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
     );
   }
 
+  Widget _ytResults() {
+    if (_ytLoading) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: TvMessage(icon: Icons.search_rounded, loading: true, text: 'Cerco "$_last"…'),
+        ),
+      );
+    }
+    final all = _ytAll;
+    if (all != null) {
+      if (all.isEmpty) {
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(48),
+            child: TvMessage(icon: Icons.search_off_rounded, text: 'Nessun risultato per "$_last"'),
+          ),
+        );
+      }
+      return SliverList.list(children: [
+        for (final sec in all)
+          TvRow(
+            title: sec.title.isEmpty ? 'Risultati' : sec.title,
+            itemCount: sec.items.length,
+            itemBuilder: (_, i) => ytCard(context, sec.items[i], sec.items, 'Ricerca: $_last'),
+          ),
+        const SizedBox(height: 24),
+      ]);
+    }
+    final items = _ytItems ?? const <YtItem>[];
+    if (items.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: TvMessage(icon: Icons.search_off_rounded, text: 'Nessun risultato di questo tipo per "$_last"'),
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(48, 8, 48, 24),
+      sliver: SliverGrid.builder(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 200,
+          mainAxisExtent: 250,
+          crossAxisSpacing: 22,
+          mainAxisSpacing: 14,
+        ),
+        itemCount: items.length,
+        itemBuilder: (_, i) => ytCard(context, items[i], items, 'Ricerca: $_last'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -307,6 +420,7 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
             ),
           ),
           SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.only(top: 16), child: _jfRow())),
+          if (_last.isNotEmpty && !_ytFailed) _ytResults() else
           BlocBuilder<ContentBloc, ContentState>(
             bloc: _content,
             builder: (context, state) {
@@ -335,33 +449,67 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
                   ),
                 );
               }
-              return SliverMainAxisGroup(slivers: [
-                const SliverToBoxAdapter(
+              // Come YouTube: con "Tutto" una riga per tipo; con un filtro solo
+              // quel tipo (filtrato anche qui, se la sorgente mescola i tipi).
+              final tracks = items.whereType<MediaItem_Track>().toList();
+              final albums = items.whereType<MediaItem_Album>().toList();
+              final artists = items.whereType<MediaItem_Artist>().toList();
+              final playlists = items.whereType<MediaItem_Playlist>().toList();
+              void more(int i, int n) {
+                final next = state.searchResults?.nextPageToken;
+                if (i >= n - 4 && next != null && state.searchStatus != SearchStatus.loadingMore) {
+                  _content.add(LoadMoreSearchContent(pageToken: next));
+                }
+              }
+              if (_filter == ContentSearchFilter.all) {
+                Widget row(String title, List<MediaItem> list) => TvRow(
+                      title: title,
+                      subtitle: '${list.length}',
+                      itemCount: list.length,
+                      itemBuilder: (_, i) => _onlineCard(list[i], items, pluginId),
+                    );
+                return SliverList.list(children: [
+                  if (tracks.isNotEmpty) row('Brani', tracks),
+                  if (albums.isNotEmpty) row('Album', albums),
+                  if (artists.isNotEmpty) row('Artisti', artists),
+                  if (playlists.isNotEmpty) row('Playlist', playlists),
+                  const SizedBox(height: 24),
+                ]);
+              }
+              final shown = switch (_filter) {
+                ContentSearchFilter.track => tracks,
+                ContentSearchFilter.album => albums,
+                ContentSearchFilter.artist => artists,
+                _ => playlists,
+              };
+              if (shown.isEmpty) {
+                return SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(48, 0, 48, 12),
-                    child: Text('Online', style: TvText.title),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(48, 0, 48, 120),
-                  sliver: SliverGrid.builder(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 200,
-                      mainAxisExtent: 250,
-                      crossAxisSpacing: 22,
-                      mainAxisSpacing: 14,
+                    padding: const EdgeInsets.all(48),
+                    child: TvMessage(
+                      icon: Icons.search_off_rounded,
+                      loading: state.searchStatus == SearchStatus.loading,
+                      text: state.searchStatus == SearchStatus.loading ? 'Cerco "$_last"…' : 'Nessun risultato di questo tipo per "$_last"',
                     ),
-                    itemCount: items.length,
-                    itemBuilder: (_, i) {
-                      final next = state.searchResults?.nextPageToken;
-                      if (i == items.length - 4 && next != null && state.searchStatus != SearchStatus.loadingMore) {
-                        _content.add(LoadMoreSearchContent(pageToken: next));
-                      }
-                      return _onlineCard(items[i], items, pluginId);
-                    },
                   ),
+                );
+              }
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(48, 8, 48, 24),
+                sliver: SliverGrid.builder(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 200,
+                    mainAxisExtent: 250,
+                    crossAxisSpacing: 22,
+                    mainAxisSpacing: 14,
+                  ),
+                  itemCount: shown.length,
+                  itemBuilder: (_, i) {
+                    more(i, shown.length);
+                    return _onlineCard(shown[i], items, pluginId);
+                  },
                 ),
-              ]);
+              );
             },
           ),
         ],

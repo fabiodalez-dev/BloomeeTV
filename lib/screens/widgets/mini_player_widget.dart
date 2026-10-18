@@ -9,6 +9,7 @@ import 'package:Bloomee/core/constants/route_paths.dart';
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:Bloomee/screens/widgets/media_metadata_links.dart';
 import 'package:Bloomee/utils/load_image.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -177,8 +178,21 @@ class _MiniPlayerCardState extends State<MiniPlayerCard>
               height: _cardHeight,
               child: Stack(
                 children: [
-                  _BlurredBackground(imageUrl: thumbUrl),
-                  _GlassOverlay(),
+                  // Su TV: fondo pieno e neutro, niente copertina sfocata.
+                  if (TvMode.isTv)
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1C1724),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0x14FFFFFF)),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    _BlurredBackground(imageUrl: thumbUrl),
+                    _GlassOverlay(),
+                  ],
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Row(
@@ -606,10 +620,13 @@ class _GlowingProgressBar extends StatelessWidget {
                         borderRadius: const BorderRadius.horizontal(
                           right: Radius.circular(2),
                         ),
-                        gradient: LinearGradient(colors: [
-                          Colors.white.withValues(alpha: 0.8),
-                          Colors.white.withValues(alpha: 0.6),
-                        ]),
+                        color: TvMode.isTv ? const Color(0xFFFF4D7E) : null,
+                        gradient: TvMode.isTv
+                            ? null
+                            : LinearGradient(colors: [
+                                Colors.white.withValues(alpha: 0.8),
+                                Colors.white.withValues(alpha: 0.6),
+                              ]),
                       ),
                     ),
                   ),

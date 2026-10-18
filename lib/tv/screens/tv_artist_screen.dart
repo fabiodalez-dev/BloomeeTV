@@ -11,6 +11,7 @@ import 'package:Bloomee/screens/screen/common_views/album_view.dart';
 import 'package:Bloomee/src/rust/api/plugin/commands.dart' show ContentSearchFilter;
 import 'package:Bloomee/tv/lidarr_action.dart';
 import 'package:Bloomee/tv/connectors/ytmusic_account.dart';
+import 'package:Bloomee/tv/screens/tv_youtube_screen.dart' show ytCard;
 import 'package:Bloomee/tv/tv_config.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:Bloomee/tv/ui/tv_widgets.dart';
@@ -161,6 +162,14 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
             final top = det?.topTracks ?? const <Track>[];
             final albums = _mergeAlbums(det?.albums.items ?? const [], _albumSearch.state);
             final related = det?.relatedArtists ?? const <ArtistSummary>[];
+            // Sezioni vere della pagina artista di YouTube Music (Album,
+            // Singoli ed EP, Video, Artisti simili…), come nell'app YouTube.
+            // I brani li mostro già sopra, quindi salto le sezioni di soli brani.
+            final ytSections = (_yt?.sections ?? const <YtSection>[])
+                .where((x) => x.items.isNotEmpty && !x.items.every((i) => i.kind == 'song'))
+                .toList();
+            final ytHasAlbums = ytSections.any((x) => x.items.any((i) => i.kind == 'album'));
+            final ytHasArtists = ytSections.any((x) => x.items.any((i) => i.kind == 'artist'));
             final all = _allTracks(d, s);
             final extra = all.skip(top.length).toList();
             // Pochi brani dell'artista nella prima pagina: ne carico subito altre.
@@ -274,7 +283,15 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
                       ),
                     ),
                   ),
-                if (albums.isNotEmpty)
+                for (final sec in ytSections)
+                  SliverToBoxAdapter(
+                    child: TvRow(
+                      title: sec.title,
+                      itemCount: sec.items.length,
+                      itemBuilder: (_, i) => ytCard(context, sec.items[i], sec.items, sec.title),
+                    ),
+                  ),
+                if (albums.isNotEmpty && !ytHasAlbums)
                   SliverToBoxAdapter(
                     child: TvRow(
                       title: 'Album e singoli',
@@ -297,7 +314,7 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
                       },
                     ),
                   ),
-                if (related.isNotEmpty)
+                if (related.isNotEmpty && !ytHasArtists)
                   SliverToBoxAdapter(
                     child: TvRow(
                       title: 'Artisti simili',
@@ -312,6 +329,7 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
                       ),
                     ),
                   ),
+                if (extra.isNotEmpty || s.searchStatus == SearchStatus.loading)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(48, 4, 48, 12),

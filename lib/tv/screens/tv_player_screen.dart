@@ -75,28 +75,6 @@ class TvPlayerScreen extends StatelessWidget {
           final art = mi?.artUri?.toString();
           return Stack(
             children: [
-              // Sfondo: la copertina sfumata.
-              if (art != null && art.isNotEmpty)
-                Positioned.fill(
-                  child: Opacity(
-                    opacity: 0.22,
-                    child: ImageFiltered(
-                      imageFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.2), BlendMode.darken),
-                      child: Image.network(art, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
-                    ),
-                  ),
-                ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [TvColors.bg.withValues(alpha: 0.75), TvColors.bg.withValues(alpha: 0.95)],
-                    ),
-                  ),
-                ),
-              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(40, 28, 32, 20),
                 child: Row(
