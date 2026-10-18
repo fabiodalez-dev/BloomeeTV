@@ -30,7 +30,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get navLocal => 'Locali';
 
   @override
-  String get navOffline => 'Offline';
+  String get navOffline => 'Scaricati';
 
   @override
   String get playerEnjoyingFrom => 'In riproduzione da';
@@ -1438,7 +1438,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get offlineNoDownloads => 'Nessun download';
 
   @override
-  String get offlineTitle => 'Offline';
+  String get offlineTitle => 'Scaricati';
 
   @override
   String get offlineSearchHint => 'Cerca tra i tuoi brani...';

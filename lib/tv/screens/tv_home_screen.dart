@@ -359,7 +359,7 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
                 _HeroHeader(hero: _hero),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.only(top: 8, bottom: 120),
+                    padding: const EdgeInsets.only(top: 12, bottom: 24),
                     children: [
                       if (!TvConfig.hasJellyfin)
                         const Padding(
@@ -445,18 +445,20 @@ class _HeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Compatta: sopra la barra restano ~450 punti e una riga di copertine
+    // ne chiede ~316, così la riga selezionata si vede sempre per intero.
     return SizedBox(
-      height: 230,
+      height: 132,
       child: ValueListenableBuilder<_HeroInfo>(
         valueListenable: hero,
         builder: (_, h, __) => Padding(
-          padding: const EdgeInsets.fromLTRB(48, 36, 48, 12),
+          padding: const EdgeInsets.fromLTRB(48, 20, 48, 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (h.image != null && h.image!.isNotEmpty) ...[
-                TvCover(h.image, size: 170, radius: 14),
-                const SizedBox(width: 28),
+                TvCover(h.image, size: 104, radius: 12),
+                const SizedBox(width: 24),
               ],
               Expanded(
                 child: Column(
@@ -465,16 +467,13 @@ class _HeroHeader extends StatelessWidget {
                   children: [
                     if (h.kind != null)
                       Text(h.kind!.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TvText.cardSub.copyWith(letterSpacing: 1.6, color: TvColors.accent)),
-                    const SizedBox(height: 6),
-                    Text(h.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TvText.hero),
-                    const SizedBox(height: 8),
-                    Text(h.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.body.copyWith(fontSize: 20)),
-                    if (h.kind != null && (h.kind!.startsWith('Album') || h.kind!.startsWith('Brano')))
-                      const Padding(
-                        padding: EdgeInsets.only(top: 6),
-                        child: Text('OK per aprire · tieni premuto OK per scaricare', style: TvText.cardSub),
-                      ),
+                    const SizedBox(height: 4),
+                    Text(h.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.hero.copyWith(fontSize: 34)),
+                    const SizedBox(height: 4),
+                    Text(h.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.body.copyWith(fontSize: 18)),
                   ],
                 ),
               ),

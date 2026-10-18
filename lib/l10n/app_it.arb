@@ -7,7 +7,7 @@
   "navLibrary": "Libreria",
   "navSearch": "Cerca",
   "navLocal": "Locali",
-  "navOffline": "Offline",
+  "navOffline": "Scaricati",
   "playerEnjoyingFrom": "In riproduzione da",
   "playerQueue": "Coda",
   "playerPlayWithMix": "Riproduci con Auto-Mix",
@@ -706,7 +706,7 @@
     }
   },
   "offlineNoDownloads": "Nessun download",
-  "offlineTitle": "Offline",
+  "offlineTitle": "Scaricati",
   "offlineSearchHint": "Cerca tra i tuoi brani...",
   "offlineRefreshTooltip": "Aggiorna download",
   "offlineCloseSearch": "Chiudi ricerca",

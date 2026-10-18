@@ -2,8 +2,8 @@ import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
 import 'package:Bloomee/core/models/media_playlist_model.dart';
 import 'package:Bloomee/screens/widgets/snackbar.dart';
 import 'package:Bloomee/tv/connectors/jellyfin_client.dart';
+import 'package:Bloomee/tv/lidarr_action.dart';
 import 'package:Bloomee/tv/tv_config.dart';
-import 'package:Bloomee/tv/tv_focus.dart';
 import 'package:Bloomee/tv/ui/tv_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -239,66 +239,47 @@ class _TvJellyfinAlbumScreenState extends State<TvJellyfinAlbumScreen> {
         builder: (context, snap) {
           final tracks = snap.data ?? const <JfItem>[];
           final total = tracks.fold<Duration>(Duration.zero, (s, t) => s + t.duration);
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 440,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(48, 48, 24, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TvCover(cover, size: 340, radius: 16),
-                      const SizedBox(height: 20),
-                      Text(a.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: TvText.hero.copyWith(fontSize: 32)),
-                      const SizedBox(height: 6),
-                      Text(
-                        [a.albumArtist, if (a.year != null) '${a.year}', if (tracks.isNotEmpty) '${tracks.length} brani · ${total.inMinutes} min'].join(' · '),
-                        style: TvText.body,
-                      ),
-                    ],
-                  ),
-                ),
+          return TvCollectionLayout(
+            cover: TvCover(cover, size: 240, radius: 14),
+            title: a.name,
+            meta: [a.albumArtist, if (a.year != null) '${a.year}', if (tracks.isNotEmpty) '${tracks.length} brani · ${total.inMinutes} min'].join(' · '),
+            loading: snap.connectionState != ConnectionState.done,
+            error: snap.hasError ? 'Errore: ${snap.error}' : null,
+            actions: [
+              TvPillButton(
+                icon: Icons.play_arrow_rounded,
+                label: 'Riproduci',
+                primary: true,
+                focusNode: _playNode,
+                onTap: tracks.isEmpty ? null : () => playJellyfinAlbum(context, a, tracks: tracks),
               ),
-              Expanded(
-                child: FocusTraversalGroup(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(24, 48, 48, 120),
-                    children: [
-                      Wrap(spacing: 14, runSpacing: 12, children: [
-                        TvPillButton(
-                          icon: Icons.play_arrow_rounded,
-                          label: 'Riproduci',
-                          primary: true,
-                          focusNode: _playNode,
-                          onTap: tracks.isEmpty ? null : () => playJellyfinAlbum(context, a, tracks: tracks),
+              TvPillButton(
+                icon: Icons.shuffle_rounded,
+                label: 'Casuale',
+                onTap: tracks.isEmpty ? null : () => playJellyfinAlbum(context, a, tracks: tracks, shuffle: true),
+              ),
+              TvPillButton(
+                icon: Icons.download_rounded,
+                label: 'Scarica',
+                onTap: tracks.isEmpty
+                    ? null
+                    : () => showDownloadMenu(
+                          context,
+                          artist: a.albumArtist,
+                          album: a.name,
+                          allowLidarr: false,
+                          albumTracks: () async => tracks.map((e) => e.toTrack(jf)).toList(),
                         ),
-                        TvPillButton(
-                          icon: Icons.shuffle_rounded,
-                          label: 'Casuale',
-                          onTap: tracks.isEmpty ? null : () => playJellyfinAlbum(context, a, tracks: tracks, shuffle: true),
-                        ),
-                      ]),
-                      const SizedBox(height: 22),
-                      if (snap.connectionState != ConnectionState.done)
-                        const TvMessage(icon: Icons.hourglass_empty, text: 'Carico i brani…', loading: true)
-                      else if (snap.hasError)
-                        TvMessage(icon: Icons.error_outline, text: 'Errore: ${snap.error}')
-                      else
-                        for (var i = 0; i < tracks.length; i++)
-                          TvTrackTile(
-                            index: tracks[i].trackNumber ?? i + 1,
-                            title: tracks[i].name,
-                            subtitle: tracks[i].albumArtist != a.albumArtist ? tracks[i].albumArtist : null,
-                            duration: tracks[i].duration,
-                            onTap: () => playJellyfinAlbum(context, a, tracks: tracks, index: i),
-                          ),
-                    ],
-                  ),
-                ),
               ),
             ],
+            itemCount: tracks.length,
+            itemBuilder: (_, i) => TvTrackTile(
+              index: tracks[i].trackNumber ?? i + 1,
+              title: tracks[i].name,
+              subtitle: tracks[i].albumArtist != a.albumArtist ? tracks[i].albumArtist : null,
+              duration: tracks[i].duration,
+              onTap: () => playJellyfinAlbum(context, a, tracks: tracks, index: i),
+            ),
           );
         },
       ),

@@ -264,11 +264,19 @@ class _Progress extends StatefulWidget {
 
 class _ProgressState extends State<_Progress> {
   bool _focused = false;
+  // Ha già la sua evidenziazione: niente anello generale.
+  late final FocusNode _node = FocusNode(debugLabel: 'tv-progress');
+  @override
+  void initState() {
+    super.initState();
+    tvMarkSelfHighlighted(_node);
+  }
   Duration? _pending;
   Timer? _commit;
 
   @override
   void dispose() {
+    _node.dispose();
     _commit?.cancel();
     super.dispose();
   }
@@ -319,6 +327,7 @@ class _ProgressState extends State<_Progress> {
         final pos = _pending ?? p?.position ?? Duration.zero;
         final frac = dur.inMilliseconds == 0 ? 0.0 : (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0);
         return Focus(
+          focusNode: _node,
           onFocusChange: (f) => setState(() => _focused = f),
           onKeyEvent: (n, e) => _onKey(n, e, p),
           child: AnimatedContainer(
@@ -369,7 +378,7 @@ class _ProgressState extends State<_Progress> {
   }
 }
 
-class _RoundButton extends StatelessWidget {
+class _RoundButton extends StatefulWidget {
   const _RoundButton({
     required this.icon,
     required this.onTap,
@@ -386,28 +395,46 @@ class _RoundButton extends StatelessWidget {
   final bool active;
 
   @override
+  State<_RoundButton> createState() => _RoundButtonState();
+}
+
+class _RoundButtonState extends State<_RoundButton> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
+    final size = widget.size;
+    // Come i pulsanti a pillola: pieno rosa solo con il focus; il pulsante
+    // principale (Play) ha il bordo rosa, mai il fondo bianco.
+    final fg = _focused
+        ? Colors.white
+        : (widget.primary || widget.active ? TvColors.accent : TvColors.text);
     return Padding(
       padding: const EdgeInsets.only(right: 16),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TvFocusable(
-          onTap: onTap,
-          scaleOnFocus: 1.08,
-          borderRadius: BorderRadius.circular(size),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: primary ? TvColors.text : TvColors.surfaceHi,
+        Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          onFocusChange: (f) => setState(() => _focused = f),
+          child: TvFocusable(
+            onTap: widget.onTap,
+            scaleOnFocus: 1.08,
+            borderRadius: BorderRadius.circular(size),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _focused ? TvColors.accent : TvColors.surfaceHi,
+                border: Border.all(
+                    color: widget.primary || _focused ? TvColors.accent : Colors.transparent, width: 2),
+              ),
+              child: Icon(widget.icon, size: size * 0.55, color: fg),
             ),
-            child: Icon(icon,
-                size: size * 0.55,
-                color: primary ? TvColors.bg : (active ? TvColors.accent : TvColors.text)),
           ),
         ),
         const SizedBox(height: 4),
-        Text(tooltip, style: TvText.body.copyWith(fontSize: 11)),
+        Text(widget.tooltip, style: TvText.body.copyWith(fontSize: 11)),
       ]),
     );
   }

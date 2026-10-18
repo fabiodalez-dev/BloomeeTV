@@ -87,7 +87,7 @@ class LibraryItemsCubit extends Cubit<LibraryItemsState> {
         subtitle = domainPlaylist.subtitle!.trim();
       } else if (domainPlaylist.type == PlaylistType.userPlaylist) {
         final trackCount = (await _playlistDao.getPlaylistTracks(p.id)).length;
-        subtitle = '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}';
+        subtitle = '$trackCount ${trackCount == 1 ? 'brano' : 'brani'}';
       }
 
       final coverUrl = await _resolveCoverUrl(p);

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:Bloomee/blocs/downloader/cubit/downloader_cubit.dart';
+import 'package:http/http.dart' as http;
 import 'package:Bloomee/core/di/service_locator.dart';
 import 'package:Bloomee/core/models/exported.dart';
 import 'package:Bloomee/plugins/utils/media_id.dart';
@@ -21,10 +24,13 @@ Future<void> showDownloadMenu(
   Future<List<Track>> Function()? albumTracks,
   String? listTitle,
   List<Track>? listTracks,
+  bool allowLidarr = true,
 }) async {
   final name = listTitle ?? (album.isNotEmpty ? album : track?.title ?? '');
   // Playlist: gli album dei suoi brani, da chiedere a Lidarr.
-  final lidarrAlbums = album.isNotEmpty
+  final lidarrAlbums = !allowLidarr
+      ? const <({String artist, String album})>[]
+      : album.isNotEmpty
       ? [(artist: artist, album: album)]
       : albumsOfTracks(listTracks ?? const [], fallbackTitle: listTitle);
   final choice = await showDialog<String>(
@@ -106,8 +112,45 @@ Future<void> downloadTracksToDevice(BuildContext context, List<Track> tracks, St
   final downloader = context.read<DownloaderCubit>();
   SnackbarService.showMessage('Scarico ${tracks.length} brani di "$title" sul Chromecast: li trovi in Scaricati.',
       duration: const Duration(seconds: 5));
+  var failed = 0;
   for (final t in List.of(tracks)) {
-    await downloader.downloadSong(t, showSnackbar: false);
+    if (t.id.startsWith('$kJellyfinPluginId::')) {
+      if (!await _downloadJellyfinTrack(downloader, t)) failed++;
+    } else {
+      await downloader.downloadSong(t, showSnackbar: false);
+    }
+  }
+  if (failed > 0) SnackbarService.showMessage('$failed brani di "$title" non sono stati scaricati.');
+}
+
+/// I brani Jellyfin non passano dal downloader dei plugin: scarico il file
+/// originale dal server e lo registro in "Scaricati".
+Future<bool> _downloadJellyfinTrack(DownloaderCubit downloader, Track t) async {
+  final jf = TvConfig.jellyfin;
+  if (jf == null) return false;
+  if (downloader.isDownloaded(t.id)) return true;
+  final id = t.id.substring('$kJellyfinPluginId::'.length);
+  try {
+    final res = await http.Client().send(http.Request('GET', Uri.parse(jf.streamUrl(id))));
+    if (res.statusCode != 200) return false;
+    final type = res.headers['content-type'] ?? '';
+    final ext = switch (type) {
+      _ when type.contains('flac') => 'flac',
+      _ when type.contains('mpeg') => 'mp3',
+      _ when type.contains('ogg') => 'ogg',
+      _ when type.contains('opus') => 'opus',
+      _ when type.contains('wav') => 'wav',
+      _ => 'm4a',
+    };
+    final dir = await downloader.downloadDirectory();
+    final artist = t.artists.isEmpty ? '' : '${t.artists.first.name} - ';
+    final safe = '$artist${t.title}'.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final file = File('${dir.path}/$safe.$ext');
+    await res.stream.pipe(file.openWrite());
+    await downloader.registerExternalDownload(t, file.path);
+    return true;
+  } catch (_) {
+    return false;
   }
 }
 

@@ -219,7 +219,7 @@ class DownloaderCubit extends Cubit<DownloaderState> {
         _upsertSnapshot(snapshot);
         if (snapshot.state == DownloadTaskState.failed) {
           SnackbarService.showMessage(
-            snapshot.lastError ?? 'Failed to download ${snapshot.track.title}',
+            snapshot.lastError ?? 'Download non riuscito: ${snapshot.track.title}',
           );
         }
       },
@@ -237,7 +237,7 @@ class DownloaderCubit extends Cubit<DownloaderState> {
       recoverySummary: (value) {
         if (value.restored > 0) {
           SnackbarService.showMessage(
-            'Restored ${value.restored} download${value.restored == 1 ? '' : 's'} after restart',
+            'Ripresi ${value.restored} download dopo il riavvio',
           );
         }
       },
@@ -267,7 +267,7 @@ class DownloaderCubit extends Cubit<DownloaderState> {
         track: snapshot.track,
       );
       await _downloadService.acknowledgePersisted(snapshot.taskId);
-      SnackbarService.showMessage('Downloaded ${snapshot.track.title}');
+      SnackbarService.showMessage('Scaricato: ${snapshot.track.title}');
       await _loadDownloadedSongs();
     } catch (error, stackTrace) {
       log(
@@ -277,7 +277,7 @@ class DownloaderCubit extends Cubit<DownloaderState> {
         stackTrace: stackTrace,
       );
       SnackbarService.showMessage(
-        'Downloaded file is ready, but saving it to the library failed.',
+        'File scaricato, ma non sono riuscito ad aggiungerlo a Scaricati.',
       );
     } finally {
       _persistingTaskIds.remove(snapshot.taskId);
@@ -392,13 +392,13 @@ class DownloaderCubit extends Cubit<DownloaderState> {
         stackTrace: stackTrace,
       );
       if (showSnackbar) {
-        SnackbarService.showMessage('Error: Download service is unavailable.');
+        SnackbarService.showMessage('Errore: servizio di download non disponibile.');
       }
       return;
     }
 
     if (connectivityCubit.state != ConnectivityState.connected) {
-      if (showSnackbar) SnackbarService.showMessage("No internet connection.");
+      if (showSnackbar) SnackbarService.showMessage("Nessuna connessione a internet.");
       return;
     }
 
@@ -409,17 +409,17 @@ class DownloaderCubit extends Cubit<DownloaderState> {
           existingDownload.status.state == DownloadState.failed) {
         await resumeDownload(existingDownload.task.taskId);
         if (showSnackbar) {
-          SnackbarService.showMessage('Resuming ${song.title}...');
+          SnackbarService.showMessage('Riprendo ${song.title}…');
         }
       } else if (showSnackbar) {
-        SnackbarService.showMessage('${song.title} is already in the queue.');
+        SnackbarService.showMessage('${song.title} è già in coda.');
       }
       return;
     }
 
     if (await _isAlreadyDownloaded(song)) {
       if (showSnackbar) {
-        SnackbarService.showMessage("${song.title} is already downloaded.");
+        SnackbarService.showMessage("${song.title} è già scaricato.");
       }
       return;
     }
@@ -427,7 +427,7 @@ class DownloaderCubit extends Cubit<DownloaderState> {
     final directory = await _getDownloadDirectory();
 
     if (showSnackbar) {
-      SnackbarService.showMessage("Preparing download for ${song.title}...");
+      SnackbarService.showMessage("Preparo il download di ${song.title}…");
     }
 
     try {
@@ -444,7 +444,7 @@ class DownloaderCubit extends Cubit<DownloaderState> {
       );
 
       if (showSnackbar) {
-        SnackbarService.showMessage('Added ${song.title} to download queue');
+        SnackbarService.showMessage('${song.title} aggiunto ai download');
       }
     } catch (e, stackTrace) {
       log(
@@ -455,7 +455,7 @@ class DownloaderCubit extends Cubit<DownloaderState> {
       );
 
       if (showSnackbar) {
-        SnackbarService.showMessage('Error: Could not start download.');
+        SnackbarService.showMessage('Errore: download non avviato.');
       }
     }
   }
@@ -484,6 +484,20 @@ class DownloaderCubit extends Cubit<DownloaderState> {
     await super.close();
   }
 
+  /// Cartella dei download (per i file scaricati fuori dal downloader, es. Jellyfin).
+  Future<Directory> downloadDirectory() => _getDownloadDirectory();
+
+  /// Registra in "Scaricati" un file già salvato in [filePath].
+  Future<void> registerExternalDownload(Track song, String filePath) async {
+    await _downloadRepo.saveDownload(
+      fileName: path.basename(filePath),
+      filePath: path.dirname(filePath),
+      lastDownloaded: DateTime.now(),
+      track: song,
+    );
+    await _loadDownloadedSongs();
+  }
+
   /// Check whether a song is downloaded.
   bool isDownloaded(String mediaId) {
     return _downloadedSongs.any((s) => s.id == mediaId);
@@ -498,6 +512,6 @@ class DownloaderCubit extends Cubit<DownloaderState> {
   Future<void> removeDownload(Track song) async {
     await _downloadRepo.removeDownload(song.id);
     await _loadDownloadedSongs();
-    SnackbarService.showMessage("${song.title} download removed");
+    SnackbarService.showMessage("${song.title} eliminato da Scaricati");
   }
 }

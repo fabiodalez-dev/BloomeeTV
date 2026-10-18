@@ -4,6 +4,7 @@ import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 /// Impostato dalla shell TV: porta il focus sul menu laterale.
@@ -71,6 +72,7 @@ class _TvFocusableState extends State<TvFocusable> {
   @override
   void initState() {
     super.initState();
+    tvMarkSelfHighlighted(_node);
     _node.addListener(_sync);
   }
 
@@ -80,6 +82,7 @@ class _TvFocusableState extends State<TvFocusable> {
     final before = old.focusNode ?? _own;
     if (!identical(before, _node)) {
       before?.removeListener(_sync);
+      tvMarkSelfHighlighted(_node);
       _node.addListener(_sync);
     }
   }
@@ -282,6 +285,93 @@ class TvGestureDetector extends StatelessWidget {
 
 /// Radice TV: tema con focus visibile, OK = attiva, scorrimento automatico
 /// verso l'elemento con focus, primo focus al primo tasto freccia.
+/// Nodi che disegnano da soli la propria evidenziazione (TvFocusable, voci
+/// del menu): per gli altri (i widget originali di Bloomee) TvRoot disegna un
+/// anello di focus ben visibile.
+final Expando<bool> _selfHighlighted = Expando<bool>();
+void tvMarkSelfHighlighted(FocusNode n) => _selfHighlighted[n] = true;
+
+/// Anello attorno all'elemento con il focus, sopra tutto, per i widget che non
+/// hanno un'evidenziazione propria abbastanza visibile su un televisore.
+class _FocusRingPainter extends CustomPainter {
+  _FocusRingPainter(this.rect) : super();
+  final Rect? rect;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = rect;
+    if (r == null) return;
+    final rr = RRect.fromRectAndRadius(r.inflate(3), Radius.circular((r.shortestSide / 2).clamp(6, 16)));
+    canvas.drawRRect(
+        rr,
+        Paint()
+          ..color = const Color(0x55FF4D7E)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 7
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    canvas.drawRRect(
+        rr,
+        Paint()
+          ..color = const Color(0xFFFF4D7E)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3);
+  }
+
+  @override
+  bool shouldRepaint(_FocusRingPainter old) => old.rect != rect;
+}
+
+class _FocusRing extends StatefulWidget {
+  const _FocusRing();
+  @override
+  State<_FocusRing> createState() => _FocusRingState();
+}
+
+class _FocusRingState extends State<_FocusRing> {
+  Rect? _rect;
+  bool _alive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Il rettangolo cambia anche senza cambi di focus (scorrimento,
+    // animazioni): lo ricontrollo a ogni frame, ridisegnando solo se cambia.
+    SchedulerBinding.instance.addPersistentFrameCallback(_tick);
+    FocusManager.instance.addListener(_check);
+  }
+
+  @override
+  void dispose() {
+    _alive = false;
+    FocusManager.instance.removeListener(_check);
+    super.dispose();
+  }
+
+  void _tick(Duration _) {
+    if (_alive) _check();
+  }
+
+  void _check() {
+    if (!_alive || !mounted) return;
+    final p = FocusManager.instance.primaryFocus;
+    Rect? r;
+    if (p != null && p is! FocusScopeNode && p.context != null && p.context!.mounted && _selfHighlighted[p] != true &&
+        p.context!.findAncestorStateOfType<EditableTextState>() == null) {
+      final rect = p.rect;
+      if (!rect.isEmpty && rect.width > 4 && rect.height > 4) r = rect;
+    }
+    if (r != _rect) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_alive && mounted) setState(() => _rect = r);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      IgnorePointer(child: CustomPaint(painter: _FocusRingPainter(_rect), size: Size.infinite));
+}
+
 class TvRoot extends StatefulWidget {
   const TvRoot({super.key, required this.child});
   final Widget child;
@@ -317,18 +407,67 @@ class _TvRootState extends State<TvRoot> {
     super.dispose();
   }
 
+  // Pagina appena aperta: il focus sta sul suo contenitore, invisibile.
+  // Appena la pagina ha qualcosa, lo porto sul primo elemento.
+  FocusScopeNode? _pendingScope;
+  void _focusIntoScope(FocusScopeNode scope) {
+    if (identical(_pendingScope, scope)) return;
+    _pendingScope = scope;
+    for (final ms in const [80, 400, 900, 1800, 3500, 6000]) {
+      Future.delayed(Duration(milliseconds: ms), () {
+        if (!mounted || !identical(FocusManager.instance.primaryFocus, scope)) return;
+        tvFocusFirstIn(scope);
+      });
+    }
+    Future.delayed(const Duration(milliseconds: 6100), () {
+      if (identical(_pendingScope, scope)) _pendingScope = null;
+    });
+  }
+
   void _onFocusChanged() {
     final pf = FocusManager.instance.primaryFocus;
+    if (pf is FocusScopeNode && pf.context != null) _focusIntoScope(pf);
     if (pf != null && pf is! FocusScopeNode) tvRememberRowFocus(pf);
     final ctx = FocusManager.instance.primaryFocus?.context;
     if (ctx == null || !ctx.mounted) return;
     if (Scrollable.maybeOf(ctx) == null) return;
-    Scrollable.ensureVisible(
-      ctx,
-      alignment: 0.4,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-    );
+    _scrollMinimal(ctx, pf!.rect);
+  }
+
+  /// Scorre ogni lista che contiene l'elemento solo di quanto serve perché
+  /// si veda per intero, con un margine (titolo della riga sopra, didascalia
+  /// sotto). Mai centrare: la pagina non salta e i titoli restano al loro posto.
+  void _scrollMinimal(BuildContext ctx, Rect r) {
+    BuildContext? c = ctx;
+    while (c != null) {
+      final st = Scrollable.maybeOf(c);
+      if (st == null) return;
+      final box = st.context.findRenderObject();
+      if (box is RenderBox && box.hasSize) {
+        final vp = box.localToGlobal(Offset.zero) & box.size;
+        final vertical = axisDirectionToAxis(st.axisDirection) == Axis.vertical;
+        // Copertine (alte): spazio per il titolo della riga sopra e la
+        // didascalia sotto. Pulsanti e voci: solo un piccolo respiro.
+        final card = r.height > 120;
+        final start = vertical ? r.top - (card ? 48 : 12) : r.left - 48;
+        final end = vertical ? r.bottom + (card ? 56 : 12) : r.right + 48;
+        final vs = vertical ? vp.top : vp.left;
+        final ve = vertical ? vp.bottom : vp.right;
+        double delta = 0;
+        if (start < vs) {
+          delta = start - vs;
+        } else if (end > ve) {
+          delta = (end - ve).clamp(0, start - vs).toDouble();
+        }
+        final pos = st.position;
+        if (delta.abs() > 0.5) {
+          final reversed = st.axisDirection == AxisDirection.up || st.axisDirection == AxisDirection.left;
+          final target = (pos.pixels + (reversed ? -delta : delta)).clamp(pos.minScrollExtent, pos.maxScrollExtent);
+          pos.animateTo(target, duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+        }
+      }
+      c = st.context;
+    }
   }
 
   /// Se nessun elemento ha il focus, la prima freccia lo porta al primo
@@ -362,7 +501,7 @@ class _TvRootState extends State<TvRoot> {
       final scope = primary is FocusScopeNode
           ? primary
           : FocusManager.instance.rootScope;
-      return scope.nextFocus();
+      return tvFocusFirstIn(scope) || scope.nextFocus();
     }
     return false;
   }
@@ -377,7 +516,13 @@ class _TvRootState extends State<TvRoot> {
         for (final k in kTvSelectKeys)
           SingleActivator(k): const ActivateIntent(),
       },
-      child: widget.child,
+      child: Stack(
+        textDirection: TextDirection.ltr,
+        children: [
+          widget.child,
+          const Positioned.fill(child: _FocusRing()),
+        ],
+      ),
     );
   }
 }
@@ -466,13 +611,25 @@ bool _isSelected(FocusNode n) =>
 /// Su/giù "a righe": va alla riga sopra o sotto; dentro quella riga sceglie
 /// l'elemento da cui si era usciti, altrimenti quello scelto (scheda attiva),
 /// altrimenti quello in colonna. Restituisce false se non c'è niente.
+/// [ctx] sta dentro [target], anche attraverso liste annidate (es. una
+/// riga orizzontale dentro la pagina che scorre in verticale).
+bool _insideScrollable(BuildContext ctx, ScrollableState target) {
+  BuildContext? c = ctx;
+  while (c != null) {
+    final st = Scrollable.maybeOf(c);
+    if (st == null) return false;
+    if (identical(st, target)) return true;
+    c = st.context;
+  }
+  return false;
+}
+
 bool tvMoveVertically(FocusNode current, {required bool down}) {
   final ctx = current.context;
   if (ctx == null || !ctx.mounted) return false;
-  // Solo nelle pagine che scorrono in verticale (menu e dialoghi restano
-  // alla gestione normale).
+  // Anche gli elementi fuori dalle liste (es. la freccia indietro in alto)
+  // si muovono a righe: niente salti della navigazione standard.
   final scrollable = Scrollable.maybeOf(ctx);
-  if (scrollable == null) return false;
   if (ctx.findAncestorStateOfType<EditableTextState>() != null) return false;
   final scope = current.nearestScope;
   if (scope == null) return false;
@@ -492,10 +649,12 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
   // Prima si resta nella lista/griglia in cui si è: se fuori schermo ci sono
   // altri elementi in quella direzione, la lista scorre invece di saltare
   // fuori (alle schede o alla barra).
-  final pos = scrollable.position;
-  final inSame = candidates.where((n) => n.context != null && identical(Scrollable.maybeOf(n.context!), scrollable)).toList();
-  final more = down ? pos.extentAfter > 1 : pos.extentBefore > 1;
-  if (inSame.isEmpty && more && axisDirectionToAxis(scrollable.axisDirection) == Axis.vertical) {
+  final pos = scrollable?.position;
+  final inSame = scrollable == null
+      ? <FocusNode>[]
+      : candidates.where((n) => n.context != null && _insideScrollable(n.context!, scrollable!)).toList();
+  final more = pos != null && (down ? pos.extentAfter > 1 : pos.extentBefore > 1);
+  if (pos != null && inSame.isEmpty && more && axisDirectionToAxis(scrollable!.axisDirection) == Axis.vertical) {
     final step = pos.viewportDimension * 0.45 * (down ? 1 : -1);
     pos
         .animateTo((pos.pixels + step).clamp(pos.minScrollExtent, pos.maxScrollExtent),
@@ -555,12 +714,11 @@ class TvDirectionalFocusAction extends DirectionalFocusAction {
     final p = primaryFocus;
     if (p != null &&
         (intent.direction == TraversalDirection.up || intent.direction == TraversalDirection.down) &&
-        p.context != null &&
-        Scrollable.maybeOf(p.context!) != null) {
-      // Nelle pagine: solo righe sopra/sotto. Se non c'è niente (inizio o
-      // fine pagina) il focus resta dov'è, senza salti imprevedibili.
-      tvMoveVertically(p, down: intent.direction == TraversalDirection.down);
-      return;
+        p.context != null) {
+      // Solo righe sopra/sotto. Nelle pagine che scorrono, se non c'è niente
+      // (inizio o fine pagina) il focus resta dov'è, senza salti.
+      final moved = tvMoveVertically(p, down: intent.direction == TraversalDirection.down);
+      if (moved || Scrollable.maybeOf(p.context!) != null) return;
     }
     if (p != null &&
         intent.direction == TraversalDirection.right &&
@@ -580,22 +738,29 @@ bool tvFocusFirstIn(FocusScopeNode scope) {
   final view = WidgetsBinding.instance.platformDispatcher.views.first;
   final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
   FocusNode? best;
+  FocusNode? bestBar;
   for (final n in scope.traversalDescendants) {
     if (n is FocusScopeNode || !n.canRequestFocus || n.skipTraversal) continue;
     final c = n.context;
     if (c == null || !c.mounted) continue;
     final r = n.rect;
     if (r.isEmpty || !screen.overlaps(r)) continue;
-    if (best == null) {
-      best = n;
-      continue;
-    }
-    final b = best.rect;
+    // I pulsanti della barra in alto (indietro, aggiorna) solo se la pagina
+    // non ha altro: si parte dal contenuto.
+    final inAppBar = c.findAncestorWidgetOfExactType<AppBar>() != null;
+    final b = inAppBar ? bestBar : best;
     // Prima la riga più in alto (con tolleranza), poi più a sinistra.
-    if (r.top < b.top - 60 || ((r.top - b.top).abs() <= 60 && r.left < b.left)) best = n;
+    if (b == null || r.top < b.rect.top - 60 || ((r.top - b.rect.top).abs() <= 60 && r.left < b.rect.left)) {
+      if (inAppBar) {
+        bestBar = n;
+      } else {
+        best = n;
+      }
+    }
   }
-  if (best == null) return false;
-  best.requestFocus();
+  final target = best ?? bestBar;
+  if (target == null) return false;
+  target.requestFocus();
   return true;
 }
 

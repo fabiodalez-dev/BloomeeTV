@@ -55,7 +55,11 @@ class _TvShellState extends State<TvShell> {
   // fondo della pagina o con destra da "In riproduzione" nel menu.
   final _barScope = FocusScopeNode(debugLabel: 'tv-bar');
   late final List<FocusNode> _itemNodes = List.generate(
-      _entries.length + 1, (i) => FocusNode(debugLabel: 'tv-menu-$i'));
+      _entries.length + 1, (i) {
+    final n = FocusNode(debugLabel: 'tv-menu-$i');
+    tvMarkSelfHighlighted(n);
+    return n;
+  });
   final _navKeys = {
     _TvPage.jellyfin: GlobalKey<NavigatorState>(),
     _TvPage.youtube: GlobalKey<NavigatorState>(),
@@ -145,7 +149,7 @@ class _TvShellState extends State<TvShell> {
       return KeyEventResult.ignored;
     final p = FocusManager.instance.primaryFocus;
     if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
-      _focusContent();
+      _focusContentFromBar();
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.arrowDown)
@@ -158,6 +162,34 @@ class _TvShellState extends State<TvShell> {
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  /// Su dalla barra: l'ultimo elemento usato se è ancora sullo schermo,
+  /// altrimenti l'elemento visibile più in basso (il più vicino alla barra).
+  void _focusContentFromBar() {
+    final last = _lastContent;
+    if (last != null && last.context != null && last.canRequestFocus &&
+        last.ancestors.contains(_contentScope) && _visibleElement(last)) {
+      last.requestFocus();
+      return;
+    }
+    final size = MediaQuery.sizeOf(context);
+    final barTop = size.height - 90;
+    FocusNode? best;
+    for (final n in _contentScope.traversalDescendants) {
+      if (n is FocusScopeNode || !n.canRequestFocus || n.skipTraversal || n.context == null) continue;
+      if (!_visibleElement(n) || n.rect.bottom > barTop + 4) continue;
+      if (best == null ||
+          n.rect.bottom > best.rect.bottom + 4 ||
+          ((n.rect.bottom - best.rect.bottom).abs() <= 4 && n.rect.left < best.rect.left)) {
+        best = n;
+      }
+    }
+    if (best != null) {
+      best.requestFocus();
+    } else {
+      _focusContent(restore: false);
+    }
   }
 
   void _focusContent({bool restore = true}) {

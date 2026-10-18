@@ -6,8 +6,11 @@ import 'package:flutter/services.dart';
 /// Palette dell'interfaccia TV.
 /// Mostra un segreto come pallini più le ultime 4 cifre, per riconoscerlo
 /// senza rivelarlo.
-String maskSecret(String s) =>
-    s.isEmpty ? '' : s.length <= 4 ? '•' * 8 : '${'•' * 8}${s.substring(s.length - 4)}';
+String maskSecret(String s) => s.isEmpty
+    ? ''
+    : s.length <= 4
+        ? '•' * 8
+        : '${'•' * 8}${s.substring(s.length - 4)}';
 
 class TvColors {
   static const bg = Color(0xFF0B0810);
@@ -232,7 +235,7 @@ class TvRow extends StatelessWidget {
 }
 
 /// Pulsante a pillola per le azioni principali (Riproduci, Casuale, Scarica…).
-class TvPillButton extends StatelessWidget {
+class TvPillButton extends StatefulWidget {
   const TvPillButton({
     super.key,
     required this.icon,
@@ -251,31 +254,51 @@ class TvPillButton extends StatelessWidget {
   final FocusNode? focusNode;
 
   @override
+  State<TvPillButton> createState() => _TvPillButtonState();
+}
+
+class _TvPillButtonState extends State<TvPillButton> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return TvFocusable(
-      autofocus: autofocus,
-      focusNode: focusNode,
-      onTap: onTap,
-      selected: primary,
-      scaleOnFocus: 1.05,
-      borderRadius: BorderRadius.circular(40),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
-        decoration: BoxDecoration(
-          color: primary ? TvColors.text : TvColors.surfaceHi,
-          borderRadius: BorderRadius.circular(40),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                color: primary ? TvColors.bg : TvColors.text, size: 24),
-            const SizedBox(width: 10),
-            Text(label,
-                style: TvText.card.copyWith(
-                    fontSize: 17,
-                    color: primary ? TvColors.bg : TvColors.text)),
-          ],
+    final primary = widget.primary;
+    final icon = widget.icon;
+    final label = widget.label;
+    // Focus: pieno rosa. Principale/scheda attiva: solo bordo rosa.
+    final fg =
+        _focused ? Colors.white : (primary ? TvColors.accent : TvColors.text);
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (f) => setState(() => _focused = f),
+      child: TvFocusable(
+        autofocus: widget.autofocus,
+        focusNode: widget.focusNode,
+        onTap: widget.onTap,
+        selected: primary,
+        scaleOnFocus: 1.05,
+        borderRadius: BorderRadius.circular(40),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+          // "Principale" o scheda attiva: bordo e testo colorati, mai pieno,
+          // così non si confonde con l'elemento che ha il focus (che è pieno).
+          decoration: BoxDecoration(
+            color: _focused ? TvColors.accent : TvColors.surfaceHi,
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(
+                color:
+                    primary || _focused ? TvColors.accent : Colors.transparent,
+                width: 2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: fg, size: 24),
+              const SizedBox(width: 10),
+              Text(label, style: TvText.card.copyWith(fontSize: 17, color: fg)),
+            ],
+          ),
         ),
       ),
     );
@@ -436,7 +459,10 @@ class _TvTextFieldState extends State<TvTextField> {
 
   Future<void> _edit() async {
     final r = await showTvKeyboard(context,
-        title: widget.label, initial: widget.controller.text, obscure: widget.obscure, actionLabel: widget.actionLabel);
+        title: widget.label,
+        initial: widget.controller.text,
+        obscure: widget.obscure,
+        actionLabel: widget.actionLabel);
     if (r == null || !mounted) return;
     widget.controller.text = r;
     setState(() {});
@@ -464,7 +490,9 @@ class _TvTextFieldState extends State<TvTextField> {
         child: Container(
           height: 64,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(color: TvColors.surfaceHi, borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(
+              color: TvColors.surfaceHi,
+              borderRadius: BorderRadius.circular(10)),
           child: Row(children: [
             if (widget.prefixIcon != null) ...[
               Icon(widget.prefixIcon, color: TvColors.textDim),
@@ -475,7 +503,9 @@ class _TvTextFieldState extends State<TvTextField> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (filled || ph != null) Text(widget.label, style: TvText.cardSub.copyWith(fontSize: 12)),
+                  if (filled || ph != null)
+                    Text(widget.label,
+                        style: TvText.cardSub.copyWith(fontSize: 12)),
                   Text(
                     filled
                         ? shown
@@ -485,20 +515,27 @@ class _TvTextFieldState extends State<TvTextField> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: filled
-                        ? TvText.card.copyWith(fontSize: 17, letterSpacing: widget.obscure ? 1.5 : null)
+                        ? TvText.card.copyWith(
+                            fontSize: 17,
+                            letterSpacing: widget.obscure ? 1.5 : null)
                         : TvText.cardSub.copyWith(
                             fontSize: 16,
-                            fontStyle: ph != null && !_focused ? FontStyle.italic : null,
-                            color: _focused ? TvColors.accent : TvColors.textDim),
+                            fontStyle: ph != null && !_focused
+                                ? FontStyle.italic
+                                : null,
+                            color:
+                                _focused ? TvColors.accent : TvColors.textDim),
                   ),
                 ],
               ),
             ),
             if (widget.showFilled && filled) ...[
-              const Icon(Icons.check_circle_rounded, color: TvColors.ok, size: 22),
+              const Icon(Icons.check_circle_rounded,
+                  color: TvColors.ok, size: 22),
               const SizedBox(width: 10),
             ],
-            Icon(Icons.keyboard_rounded, color: _focused ? TvColors.accent : TvColors.textDim),
+            Icon(Icons.keyboard_rounded,
+                color: _focused ? TvColors.accent : TvColors.textDim),
           ]),
         ),
       ),
@@ -509,16 +546,27 @@ class _TvTextFieldState extends State<TvTextField> {
 /// Tastiera a griglia per il telecomando. Accetta anche una tastiera fisica
 /// (o quella del Mac via scrcpy). Restituisce il testo, null se annullata.
 Future<String?> showTvKeyboard(BuildContext context,
-    {required String title, String initial = '', bool obscure = false, String actionLabel = 'Fatto'}) {
+    {required String title,
+    String initial = '',
+    bool obscure = false,
+    String actionLabel = 'Fatto'}) {
   return showDialog<String>(
     context: context,
     barrierColor: Colors.black87,
-    builder: (_) => _TvKeyboard(title: title, initial: initial, obscure: obscure, actionLabel: actionLabel),
+    builder: (_) => _TvKeyboard(
+        title: title,
+        initial: initial,
+        obscure: obscure,
+        actionLabel: actionLabel),
   );
 }
 
 class _TvKeyboard extends StatefulWidget {
-  const _TvKeyboard({required this.title, required this.initial, required this.obscure, required this.actionLabel});
+  const _TvKeyboard(
+      {required this.title,
+      required this.initial,
+      required this.obscure,
+      required this.actionLabel});
   final String title;
   final String initial;
   final bool obscure;
@@ -552,6 +600,7 @@ class _TvKeyboardState extends State<_TvKeyboard> {
     _firstKey.dispose();
     super.dispose();
   }
+
   bool _upper = false;
   bool _symbols = false;
 
@@ -560,17 +609,22 @@ class _TvKeyboardState extends State<_TvKeyboard> {
 
   void _type(String c) => setState(() => _text += _upper ? c.toUpperCase() : c);
   void _back() {
-    if (_text.isNotEmpty) setState(() => _text = _text.substring(0, _text.length - 1));
+    if (_text.isNotEmpty)
+      setState(() => _text = _text.substring(0, _text.length - 1));
   }
 
   KeyEventResult _onHardware(FocusNode _, KeyEvent e) {
-    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent)
+      return KeyEventResult.ignored;
     if (e.logicalKey == LogicalKeyboardKey.backspace) {
       _back();
       return KeyEventResult.handled;
     }
     final ch = e.character;
-    if (ch != null && ch.isNotEmpty && ch.runes.first >= 32 && !kTvSelectKeys.contains(e.logicalKey)) {
+    if (ch != null &&
+        ch.isNotEmpty &&
+        ch.runes.first >= 32 &&
+        !kTvSelectKeys.contains(e.logicalKey)) {
       setState(() => _text += ch);
       return KeyEventResult.handled;
     }
@@ -578,7 +632,11 @@ class _TvKeyboardState extends State<_TvKeyboard> {
   }
 
   Widget _key(String label, VoidCallback onTap,
-      {double width = 56, IconData? icon, bool primary = false, bool autofocus = false, VoidCallback? onLongPress}) {
+      {double width = 56,
+      IconData? icon,
+      bool primary = false,
+      bool autofocus = false,
+      VoidCallback? onLongPress}) {
     return Padding(
       padding: const EdgeInsets.all(4),
       child: TvFocusable(
@@ -599,9 +657,13 @@ class _TvKeyboardState extends State<_TvKeyboard> {
           child: icon != null
               ? Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(icon, color: Colors.white, size: 22),
-                  if (label.isNotEmpty) ...[const SizedBox(width: 6), Text(label, style: TvText.card)],
+                  if (label.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(label, style: TvText.card)
+                  ],
                 ])
-              : Text(_upper ? label.toUpperCase() : label, style: TvText.card.copyWith(fontSize: 20)),
+              : Text(_upper ? label.toUpperCase() : label,
+                  style: TvText.card.copyWith(fontSize: 20)),
         ),
       ),
     );
@@ -628,38 +690,147 @@ class _TvKeyboardState extends State<_TvKeyboard> {
                 const SizedBox(height: 8),
                 Container(
                   width: 840,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  decoration: BoxDecoration(color: TvColors.bg, borderRadius: BorderRadius.circular(10)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  decoration: BoxDecoration(
+                      color: TvColors.bg,
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(shown.isEmpty ? ' ' : '$shown|',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.title.copyWith(fontSize: 26)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TvText.title.copyWith(fontSize: 26)),
                 ),
                 const SizedBox(height: 14),
                 for (var r = 0; r < rows.length; r++)
                   Row(mainAxisSize: MainAxisSize.min, children: [
                     for (var i = 0; i < rows[r].length; i++)
-                      _key(rows[r][i], () => _type(rows[r][i]), autofocus: r == 0 && i == 0),
+                      _key(rows[r][i], () => _type(rows[r][i]),
+                          autofocus: r == 0 && i == 0),
                   ]),
                 if (!_symbols)
                   Row(mainAxisSize: MainAxisSize.min, children: [
-                    for (final d in '1234567890'.split('')) _key(d, () => _type(d)),
+                    for (final d in '1234567890'.split(''))
+                      _key(d, () => _type(d)),
                   ]),
                 Row(mainAxisSize: MainAxisSize.min, children: [
-                  _key('', () => setState(() => _upper = !_upper), icon: _upper ? Icons.keyboard_capslock_rounded : Icons.arrow_upward_rounded, width: 80),
-                  _key(_symbols ? 'abc' : '#+=', () => setState(() => _symbols = !_symbols), width: 90),
-                  _key('Spazio', () => _type(' '), width: 230, icon: Icons.space_bar_rounded),
+                  _key('', () => setState(() => _upper = !_upper),
+                      icon: _upper
+                          ? Icons.keyboard_capslock_rounded
+                          : Icons.arrow_upward_rounded,
+                      width: 80),
+                  _key(_symbols ? 'abc' : '#+=',
+                      () => setState(() => _symbols = !_symbols),
+                      width: 90),
+                  _key('Spazio', () => _type(' '),
+                      width: 230, icon: Icons.space_bar_rounded),
                   // OK = cancella una lettera; OK tenuto premuto = cancella tutto.
                   _key('', _back,
                       icon: Icons.backspace_rounded,
                       width: 80,
                       onLongPress: () => setState(() => _text = '')),
-                  _key('Svuota', () => setState(() => _text = ''), width: 120, icon: Icons.clear_rounded),
-                  _key(widget.actionLabel, () => Navigator.of(context).pop(_text), width: 150, icon: Icons.check_rounded, primary: true),
+                  _key('Svuota', () => setState(() => _text = ''),
+                      width: 120, icon: Icons.clear_rounded),
+                  _key(widget.actionLabel,
+                      () => Navigator.of(context).pop(_text),
+                      width: 150, icon: Icons.check_rounded, primary: true),
                 ]),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Pagina di un album o di una playlist: a sinistra copertina, titolo e dati;
+/// a destra i pulsanti, fissi in alto su una riga sola, e sotto la lista dei
+/// brani, che scorre da sola. Così i pulsanti non scorrono via e non vengono
+/// tagliati, e tutto sta sopra la barra del player.
+class TvCollectionLayout extends StatelessWidget {
+  const TvCollectionLayout({
+    super.key,
+    required this.cover,
+    required this.title,
+    required this.meta,
+    required this.actions,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.loading = false,
+    this.error,
+  });
+
+  final Widget cover;
+  final String title;
+  final String meta;
+  final List<Widget> actions;
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final bool loading;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 320,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(48, 32, 24, 16),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              cover,
+              const SizedBox(height: 16),
+              Text(title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TvText.hero.copyWith(fontSize: 28, height: 1.1)),
+              const SizedBox(height: 6),
+              Text(meta,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TvText.body.copyWith(fontSize: 16)),
+            ]),
+          ),
+        ),
+        Expanded(
+          child: FocusTraversalGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 32, 32, 14),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
+                    child: Row(children: [
+                      for (var i = 0; i < actions.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 12),
+                        actions[i],
+                      ],
+                    ]),
+                  ),
+                ),
+                Expanded(
+                  child: loading
+                      ? const TvMessage(
+                          icon: Icons.hourglass_empty,
+                          text: 'Carico i brani…',
+                          loading: true)
+                      : error != null
+                          ? TvMessage(icon: Icons.error_outline, text: error!)
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 32, 24),
+                              itemCount: itemCount,
+                              itemBuilder: itemBuilder,
+                            ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
