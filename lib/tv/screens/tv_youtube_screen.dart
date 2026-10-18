@@ -367,6 +367,7 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
                             artist: artist,
                             album: isAlbum ? title : '',
                             listTitle: title,
+                            listTracks: [for (final t in tracks) t.toTrack()],
                             albumTracks: () async => [for (final t in tracks) t.toTrack()]),
                       ),
                     ]),

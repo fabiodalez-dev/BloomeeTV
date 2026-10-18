@@ -20,8 +20,13 @@ Future<void> showDownloadMenu(
   Track? track,
   Future<List<Track>> Function()? albumTracks,
   String? listTitle,
+  List<Track>? listTracks,
 }) async {
   final name = listTitle ?? (album.isNotEmpty ? album : track?.title ?? '');
+  // Playlist: gli album dei suoi brani, da chiedere a Lidarr.
+  final lidarrAlbums = album.isNotEmpty
+      ? [(artist: artist, album: album)]
+      : albumsOfTracks(listTracks ?? const [], fallbackTitle: listTitle);
   final choice = await showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -37,17 +42,21 @@ Future<void> showDownloadMenu(
       content: SizedBox(
         width: 560,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (album.isNotEmpty)
+          if (lidarrAlbums.isNotEmpty)
             ListTile(
               autofocus: true,
               leading: const Icon(Icons.cloud_download_rounded, color: TvColors.text),
               title: const Text('Lidarr', style: TextStyle(color: TvColors.text)),
-              subtitle: Text('Scarica l\'album "$album" sul server: poi lo trovi in La tua musica (Jellyfin)', style: const TextStyle(color: TvColors.textDim)),
+              subtitle: Text(
+                  lidarrAlbums.length == 1
+                      ? 'Scarica l\'album "${lidarrAlbums.first.album}" sul server: poi lo trovi in La tua musica (Jellyfin)'
+                      : 'Scarica sul server i ${lidarrAlbums.length} album di questi brani: poi li trovi in La tua musica (Jellyfin)',
+                  style: const TextStyle(color: TvColors.textDim)),
               onTap: () => Navigator.pop(ctx, 'lidarr'),
             ),
           if (track != null)
             ListTile(
-              autofocus: album.isEmpty,
+              autofocus: lidarrAlbums.isEmpty,
               leading: const Icon(Icons.download_for_offline_rounded, color: TvColors.text),
               title: const Text('Locale', style: TextStyle(color: TvColors.text)),
               subtitle: const Text('Scarica il brano sul Chromecast, in Scaricati', style: TextStyle(color: TvColors.textDim)),
@@ -55,7 +64,7 @@ Future<void> showDownloadMenu(
             ),
           if (albumTracks != null)
             ListTile(
-              autofocus: album.isEmpty && track == null,
+              autofocus: lidarrAlbums.isEmpty && track == null,
               leading: const Icon(Icons.library_music_rounded, color: TvColors.text),
               title: const Text('Locale', style: TextStyle(color: TvColors.text)),
               subtitle: Text('Scarica tutti i brani di "$name" sul Chromecast, in Scaricati', style: const TextStyle(color: TvColors.textDim)),
@@ -72,7 +81,11 @@ Future<void> showDownloadMenu(
   final downloader = context.read<DownloaderCubit>();
   switch (choice) {
     case 'lidarr':
-      await downloadAlbumWithLidarr(context, artist: artist, album: album);
+      if (lidarrAlbums.length == 1) {
+        await downloadAlbumWithLidarr(context, artist: lidarrAlbums.first.artist, album: lidarrAlbums.first.album);
+      } else {
+        await _requestManyWithLidarr(lidarrAlbums);
+      }
     case 'track':
       await downloader.downloadSong(track!);
     case 'album':
@@ -96,6 +109,58 @@ Future<void> downloadTracksToDevice(BuildContext context, List<Track> tracks, St
   for (final t in List.of(tracks)) {
     await downloader.downloadSong(t, showSnackbar: false);
   }
+}
+
+/// Album distinti (artista principale, titolo) dei brani di una playlist. Se
+/// i brani non dicono l'album ma sono tutti dello stesso artista, uso il
+/// titolo della playlist ripulito (es. "Green Day American Idiot (Deluxe)").
+List<({String artist, String album})> albumsOfTracks(List<Track> tracks, {String? fallbackTitle}) {
+  final seen = <String>{};
+  final out = <({String artist, String album})>[];
+  for (final t in tracks) {
+    final al = t.album?.title.trim() ?? '';
+    final ar = t.artists.isNotEmpty ? t.artists.first.name : '';
+    if (al.isEmpty || ar.isEmpty) continue;
+    if (seen.add('${ar.toLowerCase()}|${al.toLowerCase()}')) out.add((artist: ar, album: al));
+  }
+  if (out.isEmpty && fallbackTitle != null && tracks.isNotEmpty) {
+    final artists = {for (final t in tracks) if (t.artists.isNotEmpty) t.artists.first.name};
+    if (artists.length == 1) {
+      final ar = artists.first;
+      var al = fallbackTitle.replaceAll(RegExp(r'\s*[\(\[][^\)\]]*[\)\]]'), '').trim();
+      if (al.toLowerCase().startsWith(ar.toLowerCase())) al = al.substring(ar.length).replaceFirst(RegExp(r'^[\s\-–:]+'), '');
+      if (al.isNotEmpty) out.add((artist: ar, album: al));
+    }
+  }
+  return out;
+}
+
+Future<void> _requestManyWithLidarr(List<({String artist, String album})> albums) async {
+  final client = TvConfig.lidarr;
+  if (client == null) {
+    SnackbarService.showMessage('Lidarr non configurato: apri Impostazioni nel menu a sinistra',
+        duration: const Duration(seconds: 4));
+    return;
+  }
+  SnackbarService.showMessage('Chiedo ${albums.length} album a Lidarr… (può volerci qualche minuto)',
+      duration: const Duration(seconds: 6));
+  var ok = 0, already = 0, missing = 0;
+  for (final a in albums) {
+    final r = await client.requestAlbum(artist: a.artist, album: a.album);
+    switch (r.status) {
+      case LidarrRequestStatus.requested:
+        ok++;
+      case LidarrRequestStatus.alreadyMonitored:
+      case LidarrRequestStatus.alreadyPresent:
+        already++;
+      case LidarrRequestStatus.notFound:
+      case LidarrRequestStatus.error:
+        missing++;
+    }
+  }
+  SnackbarService.showMessage(
+      'Lidarr: $ok album in download, $already già presenti o richiesti, $missing non trovati.',
+      duration: const Duration(seconds: 6));
 }
 
 /// Brani di un album di un plugin (prima pagina, di solito l'album intero).

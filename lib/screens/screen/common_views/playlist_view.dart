@@ -535,7 +535,7 @@ class _PlaylistHeaderContent extends StatelessWidget {
             icon: Icons.download_rounded,
             label: 'Scarica',
             onTap: () => showDownloadMenu(context,
-                artist: '', album: '', listTitle: title, albumTracks: () async => List.of(tracks)),
+                artist: '', album: '', listTitle: title, listTracks: tracks, albumTracks: () async => List.of(tracks)),
           ),
         if (url != null && !TvMode.isTv)
           _PremiumCircularButton(
