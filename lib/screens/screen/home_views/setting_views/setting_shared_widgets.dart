@@ -1,5 +1,7 @@
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:Bloomee/screens/screen/home_views/setting_views/custom_switch.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
+import 'package:Bloomee/tv/ui/tv_widgets.dart';
 import 'package:flutter/material.dart';
 
 class SettingSectionHeader extends StatelessWidget {
@@ -401,16 +403,23 @@ class SettingQualityChip extends StatelessWidget {
               width: 1.5,
             ),
           ),
-          child: Text(
-            label,
-            style: Default_Theme.secondoryTextStyleMedium.copyWith(
-              color: isSelected
-                  ? Default_Theme.accentColor2
-                  : Default_Theme.primaryColor2.withValues(alpha: 0.7),
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (isSelected) ...[
+              const Icon(Icons.check_rounded,
+                  size: 16, color: Default_Theme.accentColor2),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: Default_Theme.secondoryTextStyleMedium.copyWith(
+                color: isSelected
+                    ? Default_Theme.accentColor2
+                    : Default_Theme.primaryColor2.withValues(alpha: 0.7),
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
             ),
-          ),
+          ]),
         ),
       ),
     );
@@ -422,6 +431,10 @@ class SettingQualityChipRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<String> options;
+
+  /// Valori salvati corrispondenti a [options] (le etichette sono tradotte,
+  /// i valori no). Se nullo, il valore è l'etichetta stessa.
+  final List<String>? values;
   final String selected;
   final ValueChanged<String> onSelected;
 
@@ -432,6 +445,7 @@ class SettingQualityChipRow extends StatelessWidget {
     required this.options,
     required this.selected,
     required this.onSelected,
+    this.values,
     super.key,
   });
 
@@ -480,13 +494,14 @@ class SettingQualityChipRow extends StatelessWidget {
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: options
-                .map((opt) => SettingQualityChip(
-                      label: opt,
-                      isSelected: opt == selected,
-                      onTap: () => onSelected(opt),
-                    ))
-                .toList(),
+            children: [
+              for (var i = 0; i < options.length; i++)
+                SettingQualityChip(
+                  label: options[i],
+                  isSelected: (values?[i] ?? options[i]) == selected,
+                  onTap: () => onSelected(values?[i] ?? options[i]),
+                ),
+            ],
           ),
         ],
       ),
@@ -607,6 +622,13 @@ class SettingTextFieldTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Su TV la tastiera di sistema non riceve il D-pad: tastiera a griglia.
+    if (TvMode.isTv) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: TvTextField(controller: controller, label: label, placeholder: 'Non inserito', showFilled: true),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: TextField(
@@ -837,6 +859,14 @@ class _DropdownBottomSheet<T> extends StatelessWidget {
           ),
           Flexible(
             child: ListView.separated(
+              // Parte dalla voce selezionata (circa 56 px per voce), così col
+              // telecomando non si scorre l'elenco dall'inizio.
+              controller: ScrollController(
+                initialScrollOffset: () {
+                  final i = items.indexWhere((e) => e.value == currentValue);
+                  return i <= 2 ? 0.0 : (i - 2) * 56.0;
+                }(),
+              ),
               shrinkWrap: true,
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
@@ -848,6 +878,7 @@ class _DropdownBottomSheet<T> extends StatelessWidget {
                 return _DropdownOption<T>(
                   item: item,
                   isSelected: isSelected,
+                  autofocus: isSelected,
                   onTap: () => onSelected(item.value),
                 );
               },
@@ -862,12 +893,14 @@ class _DropdownBottomSheet<T> extends StatelessWidget {
 class _DropdownOption<T> extends StatelessWidget {
   final SettingDropdownItem<T> item;
   final bool isSelected;
+  final bool autofocus;
   final VoidCallback onTap;
 
   const _DropdownOption({
     required this.item,
     required this.isSelected,
     required this.onTap,
+    this.autofocus = false,
     super.key,
   });
 
@@ -876,6 +909,7 @@ class _DropdownOption<T> extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        autofocus: autofocus,
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         highlightColor: Default_Theme.accentColor2.withValues(alpha: 0.06),

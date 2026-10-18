@@ -1,3 +1,4 @@
+import 'package:Bloomee/utils/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -213,8 +214,7 @@ class About extends StatelessWidget {
                       text: 'Maintainer',
                       tooltip: l10n.aboutFollowGitHub,
                       onTap: () {
-                        launchUrl(Uri.parse('https://github.com/HemantKArya'),
-                            mode: LaunchMode.externalApplication);
+                        openLink(Uri.parse('https://github.com/HemantKArya'));
                       }),
                   // Short label 'Email' opens mail composer
                   _InfoPill(
@@ -222,10 +222,7 @@ class About extends StatelessWidget {
                       text: 'Contact',
                       tooltip: l10n.aboutSendInquiry,
                       onTap: () {
-                        launchUrl(
-                          Uri.parse('https://x.com/iamhemantindia'),
-                          mode: LaunchMode.externalApplication,
-                        );
+                        openLink(Uri.parse('https://x.com/iamhemantindia'));
                       }),
                   // Short label 'Linkedin' opens Linkedin profile
                   _InfoPill(
@@ -233,9 +230,7 @@ class About extends StatelessWidget {
                       text: 'Linkedin',
                       tooltip: l10n.aboutCreativeHighlights,
                       onTap: () {
-                        launchUrl(
-                            Uri.parse('https://linkedin.com/in/iamhemantindia'),
-                            mode: LaunchMode.externalApplication);
+                        openLink(Uri.parse('https://linkedin.com/in/iamhemantindia'));
                       }),
                 ],
               )
@@ -279,10 +274,7 @@ class About extends StatelessWidget {
               // increase the ink response radius to match the larger pill
               borderRadius: BorderRadius.circular(32.0),
               onTap: () {
-                launchUrl(
-                  Uri.parse("https://hemantkarya.github.io/BloomeeTunes/"),
-                  mode: LaunchMode.externalApplication,
-                );
+                openLink(Uri.parse("https://hemantkarya.github.io/BloomeeTunes/"));
               },
               child: Container(
                 // increased padding for a larger touch target
@@ -336,9 +328,7 @@ class About extends StatelessWidget {
             InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: () {
-                launchUrl(
-                    Uri.parse("https://hemantkarya.github.io/BloomeeTunes/"),
-                    mode: LaunchMode.externalApplication);
+                openLink(Uri.parse("https://hemantkarya.github.io/BloomeeTunes/"));
               },
               child: Row(
                 mainAxisSize: MainAxisSize.min,

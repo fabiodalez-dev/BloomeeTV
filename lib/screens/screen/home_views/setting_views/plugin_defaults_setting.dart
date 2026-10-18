@@ -3,6 +3,7 @@ import 'package:Bloomee/plugins/blocs/plugin/plugin_bloc.dart';
 import 'package:Bloomee/plugins/blocs/plugin/plugin_state.dart';
 import 'package:Bloomee/src/rust/api/plugin/plugin_info.dart';
 import 'package:Bloomee/screens/screen/home_views/setting_views/setting_shared_widgets.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -463,14 +464,33 @@ class _ResolverPriorityListState extends State<_ResolverPriorityList> {
           itemBuilder: (context, index) {
             final pluginId = _items[index];
             final name = widget.nameMap[pluginId] ?? pluginId;
+            final tile = _PriorityTile(
+              rank: index + 1,
+              name: name,
+              pluginId: pluginId,
+            );
+            // Telecomando: niente trascinamento, OK porta il resolver in cima.
+            if (TvMode.isTv) {
+              return Material(
+                key: ValueKey(pluginId),
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                          if (index == 0) return;
+                          setState(() {
+                            _items.removeAt(index);
+                            _items.insert(0, pluginId);
+                          });
+                          widget.onReorder(List.of(_items));
+                        },
+                  child: tile,
+                ),
+              );
+            }
             return ReorderableDragStartListener(
               key: ValueKey(pluginId),
               index: index,
-              child: _PriorityTile(
-                rank: index + 1,
-                name: name,
-                pluginId: pluginId,
-              ),
+              child: tile,
             );
           },
         ),

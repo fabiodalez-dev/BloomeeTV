@@ -1,4 +1,5 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:ui';
 
 import 'package:Bloomee/core/constants/route_paths.dart';
@@ -502,8 +503,7 @@ class _SongInfoScreenState extends State<SongInfoScreen> {
               final url = song.url;
               if (url != null) {
                 try {
-                  await launchUrl(Uri.parse(url),
-                      mode: LaunchMode.externalApplication);
+                  await openLink(Uri.parse(url));
                 } catch (e) {
                   SnackbarService.showMessage(l10n.songInfoOpenFailed);
                 }

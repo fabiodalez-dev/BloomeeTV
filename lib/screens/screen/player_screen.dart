@@ -1,3 +1,4 @@
+import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:async';
 
 import 'package:Bloomee/blocs/downloader/cubit/downloader_cubit.dart';
@@ -719,7 +720,7 @@ class _ExternalLinkControl extends StatelessWidget {
       onPressed: () async {
         final url = player.currentTrackInfo.url;
         if (url != null) {
-          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+          await openLink(Uri.parse(url));
         } else {
           SnackbarService.showMessage(
               AppLocalizations.of(context)!.snackbarCouldNotOpenLink);

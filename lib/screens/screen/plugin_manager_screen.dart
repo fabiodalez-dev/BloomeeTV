@@ -22,6 +22,8 @@ import 'package:Bloomee/plugins/blocs/repository/plugin_repository_cubit.dart';
 import 'package:Bloomee/plugins/utils/plugin_constants.dart';
 
 import 'package:Bloomee/tv/tv_focus.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
+import 'package:Bloomee/tv/ui/tv_widgets.dart';
 class PluginManagerScreen extends StatefulWidget {
   const PluginManagerScreen({super.key});
 
@@ -1177,6 +1179,16 @@ class _ApiKeysDialogContentState extends State<_ApiKeysDialogContent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (TvMode.isTv)
+                        TvTextField(
+                          controller: _controllers[entry.key]!,
+                          label: keyLabel,
+                          obscure: req.isSecret,
+                          revealTail: req.isSecret,
+                          placeholder: req.defaultValue ?? 'Non inserita',
+                          showFilled: true,
+                        )
+                      else
                       TextField(
                         controller: _controllers[entry.key],
                         obscureText: req.isSecret,

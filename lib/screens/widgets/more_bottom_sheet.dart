@@ -1,3 +1,4 @@
+import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -314,10 +315,7 @@ class _TrackOptionsBottomSheet extends StatelessWidget {
                               Navigator.pop(ctx);
                               if (song.url?.isEmpty ?? true) return;
                               try {
-                                await launchUrl(
-                                  Uri.parse(song.url!),
-                                  mode: LaunchMode.externalApplication,
-                                );
+                                await openLink(Uri.parse(song.url!));
                               } catch (_) {
                                 SnackbarService.showMessage(
                                     l10n.menuOpenLinkFailed);

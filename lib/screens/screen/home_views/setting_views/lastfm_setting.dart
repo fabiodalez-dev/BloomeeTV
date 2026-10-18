@@ -29,8 +29,6 @@ class _LastDotFMState extends State<LastDotFM> {
 
   @override
   void initState() {
-    apiKeyController.text = "API Key";
-    apiSecretController.text = "Api Secret";
     getKeysFromDB();
     super.initState();
   }

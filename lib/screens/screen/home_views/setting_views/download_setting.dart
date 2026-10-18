@@ -4,6 +4,7 @@ import 'package:Bloomee/blocs/settings_cubit/cubit/settings_cubit.dart';
 import 'package:Bloomee/services/player/stream_quality_selector.dart';
 import 'package:Bloomee/screens/screen/home_views/setting_views/setting_shared_widgets.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:Bloomee/screens/widgets/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -92,7 +93,12 @@ class _DownloadSettingsState extends State<DownloadSettings> {
                     icon: MingCute.folder_download_fill,
                     title: l10n.downloadSettingQuality,
                     subtitle: l10n.downloadSettingQualitySubtitle,
-                    options: AudioStreamQualityPreference.values
+                    options: [
+                      l10n.playerSettingQualityLow,
+                      l10n.playerSettingQualityMedium,
+                      l10n.playerSettingQualityHigh,
+                    ],
+                    values: AudioStreamQualityPreference.values
                         .map((q) => q.label)
                         .toList(),
                     selected: state.downQuality,
@@ -111,7 +117,9 @@ class _DownloadSettingsState extends State<DownloadSettings> {
                     subtitle: state.downPath,
                     roundBottom: Platform.isAndroid,
                     onTap: Platform.isAndroid
-                        ? () {}
+                        ? () => SnackbarService.showMessage(
+                            'Su Android la cartella è fissa: trovi i brani scaricati nel menu Scaricati.',
+                            duration: const Duration(seconds: 4))
                         : () async {
                             FilePicker.platform
                                 .getDirectoryPath()

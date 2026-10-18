@@ -1,3 +1,4 @@
+import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:ui';
 
 import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
@@ -533,7 +534,7 @@ class _PlaylistHeaderContent extends StatelessWidget {
             tooltip: 'Open Original Link',
             onTap: () {
               SnackbarService.showMessage('Opening original playlist page.');
-              launchUrl(Uri.parse(url!), mode: LaunchMode.externalApplication);
+              openLink(Uri.parse(url!));
             },
           ),
       ],

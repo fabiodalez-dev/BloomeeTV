@@ -44,6 +44,10 @@ class TvActivity : AudioServiceActivity() {
                     @Suppress("DEPRECATION")
                     startActivityForResult(Intent(this, YtLoginActivity::class.java), YT_LOGIN)
                 }
+                "openWeb" -> {
+                    startActivity(Intent(this, WebActivity::class.java).putExtra("url", call.argument<String>("url")))
+                    result.success(null)
+                }
                 "ytLogout" -> {
                     @Suppress("DEPRECATION")
                     startActivityForResult(Intent(this, YtLoginActivity::class.java).putExtra("logout", true), YT_LOGOUT)

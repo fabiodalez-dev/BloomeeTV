@@ -13,6 +13,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:ui' as ui;
 
 import 'package:Bloomee/tv/tv_focus.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 const Map<String, List<double>> _kPresets = {
   'Flat': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   'Acoustic': [3, 2, 1, 0, 0, 0, 1, 2, 2, 3],
@@ -71,6 +72,12 @@ class _EqualizerViewState extends State<EqualizerView>
   int? _draggingBandIndex;
   bool _isGraphInteractive = false;
 
+  // Telecomando: OK entra nella curva, ←→ banda, ↑↓ guadagno, OK/Indietro esce.
+  final _graphFocus = FocusNode(debugLabel: 'eq-graph');
+  bool _graphFocused = false;
+  bool _tvEditing = false;
+  int _tvBand = 0;
+
   // FIX L-01: Reactive subscriptions so the view stays in sync with engine state
   // changes from external code (settings restore, revive, Bloomee settings page).
   StreamSubscription? _eqEnabledSub;
@@ -128,6 +135,7 @@ class _EqualizerViewState extends State<EqualizerView>
     _settingsCubit.setEqPreset(_selectedPreset);
     _fadeCtrl.dispose();
     _curveCtrl.dispose();
+    _graphFocus.dispose();
     super.dispose();
   }
 
@@ -262,6 +270,41 @@ class _EqualizerViewState extends State<EqualizerView>
     }
 
     _onBandChanged(_draggingBandIndex!, newGain);
+  }
+
+  KeyEventResult _onGraphKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (kTvSelectKeys.contains(key)) {
+      if (event is KeyRepeatEvent) return KeyEventResult.handled;
+      if (!_engine.equalizerEnabled) {
+        _engine.setEqualizerEnabled(true);
+        _settingsCubit.setEqEnabled(true);
+      }
+      setState(() => _tvEditing = !_tvEditing);
+      return KeyEventResult.handled;
+    }
+    if (!_tvEditing) return KeyEventResult.ignored;
+    final n = _currentGains.length;
+    if (key == LogicalKeyboardKey.goBack || key == LogicalKeyboardKey.escape) {
+      setState(() => _tvEditing = false);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
+      final d = key == LogicalKeyboardKey.arrowLeft ? -1 : 1;
+      setState(() => _tvBand = (_tvBand + d).clamp(0, n - 1));
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.arrowDown) {
+      final d = key == LogicalKeyboardKey.arrowUp ? 1.0 : -1.0;
+      final g = (_currentGains[_tvBand] + d).clamp(_minGain, _maxGain).toDouble();
+      _onBandChanged(_tvBand, g);
+      _onBandChangeEnd(_tvBand);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.handled;
   }
 
   void _handleGraphPanEnd(DragEndDetails details) {
@@ -438,7 +481,42 @@ class _EqualizerViewState extends State<EqualizerView>
                               ],
                             ),
                             const SizedBox(height: 24),
-                            AnimatedOpacity(
+                            if (TvMode.isTv)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Text(
+                                  _tvEditing
+                                      ? 'Banda ${_freqLabel(bands[_tvBand].centerFrequency)} Hz: ${_currentGains[_tvBand].toStringAsFixed(0)} dB  ·  ←→ banda  ·  ↑↓ guadagno  ·  OK per finire'
+                                      : 'Seleziona la curva e premi OK per regolarla col telecomando',
+                                  style: TextStyle(
+                                      color: _tvEditing
+                                          ? accent
+                                          : Colors.white.withValues(alpha: 0.6),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            Focus(
+                              focusNode: _graphFocus,
+                              canRequestFocus: TvMode.isTv,
+                              skipTraversal: !TvMode.isTv,
+                              onKeyEvent: _onGraphKey,
+                              onFocusChange: (f) => setState(() {
+                                _graphFocused = f;
+                                if (!f) _tvEditing = false;
+                              }),
+                              child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                    color: _graphFocused
+                                        ? accent.withValues(
+                                            alpha: _tvEditing ? 1 : 0.6)
+                                        : Colors.transparent,
+                                    width: 2.5),
+                              ),
+                              child: AnimatedOpacity(
                               opacity: isEnabled ? 1.0 : 0.3,
                               duration: const Duration(milliseconds: 300),
                               child: SizedBox(
@@ -480,7 +558,9 @@ class _EqualizerViewState extends State<EqualizerView>
                                                   .map((b) => _freqLabel(
                                                       b.centerFrequency))
                                                   .toList(),
-                                              draggingIndex: _draggingBandIndex,
+                                              draggingIndex: _tvEditing
+                                                  ? _tvBand
+                                                  : _draggingBandIndex,
                                             ),
                                           ),
                                         ),
@@ -489,6 +569,8 @@ class _EqualizerViewState extends State<EqualizerView>
                                   ),
                                 ),
                               ),
+                            ),
+                            ),
                             ),
                           ],
                         ),
@@ -548,7 +630,12 @@ class _EqualizerViewState extends State<EqualizerView>
                           : Default_Theme.primaryColor1
                               .withValues(alpha: 0.05)),
                 ),
-                child: Text(name,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (isActive) ...[
+                    Icon(Icons.check_rounded, size: 15, color: accent),
+                    const SizedBox(width: 5),
+                  ],
+                  Text(name,
                     style: TextStyle(
                         color: isActive
                             ? accent
@@ -557,6 +644,7 @@ class _EqualizerViewState extends State<EqualizerView>
                         fontSize: 13,
                         fontWeight:
                             isActive ? FontWeight.w700 : FontWeight.w500)),
+                ]),
               ),
             ),
           );

@@ -1,3 +1,4 @@
+import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
@@ -293,7 +294,7 @@ class LastdotfmCubit extends Cubit<LastdotfmState> {
     LastFmAPI.setAPISecret(secret);
     final token = await LastFmAPI.fetchRequestToken();
     final url = LastFmAPI.getAuthUrl(token);
-    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    openLink(Uri.parse(url));
     return token;
   }
 

@@ -4,6 +4,7 @@ import 'package:Bloomee/blocs/settings_cubit/cubit/settings_cubit.dart';
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:Bloomee/screens/screen/home_views/setting_views/setting_shared_widgets.dart';
 import 'package:Bloomee/screens/screen/player_views/equalizer_view.dart';
+import 'package:Bloomee/services/player/stream_quality_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
@@ -72,6 +73,9 @@ class PlayerSettings extends StatelessWidget {
                       l10n.playerSettingQualityMedium,
                       l10n.playerSettingQualityHigh,
                     ],
+                    values: AudioStreamQualityPreference.values
+                        .map((q) => q.label)
+                        .toList(),
                     selected: state.strmQuality,
                     onSelected: (v) =>
                         context.read<SettingsCubit>().setStrmQuality(v),
@@ -259,13 +263,19 @@ class _CrossfadeSliderState extends State<_CrossfadeSlider> {
               inactiveTickMarkColor:
                   Default_Theme.primaryColor2.withValues(alpha: 0.2),
             ),
-            child: Slider(
-              min: 0,
-              max: 12,
-              divisions: 6,
-              value: _localValue,
-              onChanged: (v) => setState(() => _localValue = v),
-              onChangeEnd: (v) => widget.onChanged(v.toInt()),
+            // Navigazione direzionale: sinistra/destra cambiano il valore,
+            // su/giù escono dallo slider (col telecomando restava intrappolato).
+            child: MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(navigationMode: NavigationMode.directional),
+              child: Slider(
+                min: 0,
+                max: 12,
+                divisions: 6,
+                value: _localValue,
+                onChanged: (v) => setState(() => _localValue = v),
+                onChangeEnd: (v) => widget.onChanged(v.toInt()),
+              ),
             ),
           ),
           Padding(

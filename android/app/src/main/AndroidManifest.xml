@@ -79,6 +79,7 @@
         </activity>
 
         <activity android:name="ls.bloomee.musicplayer.YtLoginActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" android:configChanges="orientation|screenSize|keyboard|keyboardHidden|navigation" />
+        <activity android:name="ls.bloomee.musicplayer.WebActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" android:configChanges="orientation|screenSize|keyboard|keyboardHidden|navigation" />
 
         <service android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback" 

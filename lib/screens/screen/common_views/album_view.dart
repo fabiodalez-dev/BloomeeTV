@@ -1,4 +1,5 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:ui';
 
 import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
@@ -570,7 +571,7 @@ class _AlbumHeaderContent extends StatelessWidget {
             tooltip: l10n.tooltipOpenOriginalLink,
             onTap: () {
               SnackbarService.showMessage(l10n.snackbarOpeningAlbumPage);
-              launchUrl(Uri.parse(url!), mode: LaunchMode.externalApplication);
+              openLink(Uri.parse(url!));
             },
           ),
       ],

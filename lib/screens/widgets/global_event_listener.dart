@@ -1,3 +1,4 @@
+import 'package:Bloomee/utils/url_launcher.dart';
 import 'dart:async';
 import 'dart:developer';
 import 'package:Bloomee/blocs/global_events/global_events_cubit.dart';
@@ -13,7 +14,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 Future<void> openURL(String url) async {
-  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  openLink(Uri.parse(url));
 }
 
 class GlobalEventListener extends StatefulWidget {

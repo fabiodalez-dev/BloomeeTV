@@ -924,7 +924,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get pluginDefaultsPriorityDesc =>
-      'Trascina per riordinare. I resolver con priorità più alta vengono provati per primi quando si risolvono elementi di classifica o brani importati in brani riproducibili.';
+      'Trascina per riordinare (col telecomando: OK porta in cima). I resolver con priorità più alta vengono provati per primi quando si risolvono elementi di classifica o brani importati in brani riproducibili.';
 
   @override
   String get pluginDefaultsLyricsHeader => 'Priorità dei testi';
@@ -934,7 +934,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get pluginDefaultsLyricsDesc =>
-      'Trascina per riordinare i provider di testi. Il primo provider viene provato per primo.';
+      'Trascina per riordinare i provider di testi (col telecomando: OK porta in cima). Il primo provider viene provato per primo.';
 
   @override
   String get pluginDefaultsSuggestionsHeader => 'Suggerimenti di ricerca';

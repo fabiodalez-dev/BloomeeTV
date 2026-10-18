@@ -12,6 +12,9 @@ import 'package:Bloomee/l10n/app_localizations.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:path/path.dart' as p;
+import 'package:Bloomee/services/db/db_provider.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 
 class BackupSettings extends StatelessWidget {
   const BackupSettings({super.key});
@@ -302,18 +305,28 @@ Future<void> _onRestoreTap(BuildContext context) async {
   final l10n = AppLocalizations.of(context)!;
   try {
     // 1) Ask user to pick a file (using FileType.any so that custom extensions like .isar / .db are not grayed out on Android)
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      withData: false,
-      type: FileType.any,
-    );
+    // Su TV non c'è il selettore di file: scelgo tra i backup nella
+    // cartella dei backup dell'app (dove "Crea backup" li salva).
+    final PlatformFile picked;
+    if (TvMode.isTv) {
+      final f = await _pickTvBackup(context);
+      if (f == null) return;
+      picked = PlatformFile(name: p.basename(f.path), size: f.lengthSync(), path: f.path);
+    } else {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        withData: false,
+        type: FileType.any,
+      );
 
-    if (result == null || result.files.isEmpty) {
-      SnackbarService.showMessage(l10n.storageRestoreNoFile);
-      return;
+      if (result == null || result.files.isEmpty) {
+        SnackbarService.showMessage(l10n.storageRestoreNoFile);
+        return;
+      }
+
+      picked = result.files.first;
     }
-
-    final picked = result.files.first;
+    if (!context.mounted) return;
 
     // 2) Save the picked file to internal documents directory
     final savedPath = await _savePickedFileToInternalDir(picked);
@@ -690,5 +703,56 @@ Future<void> _showResultDialog(
         ],
       );
     },
+  );
+}
+
+/// Elenco dei backup salvati sul dispositivo, da scegliere col telecomando.
+Future<File?> _pickTvBackup(BuildContext context) async {
+  final dir = Directory(p.dirname(await DBProvider.getDbBackupFilePath()));
+  final files = (await dir.exists())
+      ? dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => RegExp(r'\.(isar|db|json)$').hasMatch(f.path))
+          .toList()
+      : <File>[];
+  files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+  if (files.isEmpty) {
+    SnackbarService.showMessage(
+        'Nessun backup su questo dispositivo. Usa "Crea backup" oppure copia un file in ${dir.path}',
+        duration: const Duration(seconds: 6));
+    return null;
+  }
+  if (!context.mounted) return null;
+  return showDialog<File>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF17121F),
+      title: const Text('Scegli il backup da ripristinare',
+          style: TextStyle(color: Colors.white)),
+      content: SizedBox(
+        width: 560,
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (var i = 0; i < files.length; i++)
+              ListTile(
+                autofocus: i == 0,
+                leading: const Icon(Icons.restore_rounded, color: Colors.white70),
+                title: Text(p.basename(files[i].path),
+                    style: const TextStyle(color: Colors.white)),
+                subtitle: Text(
+                    files[i].lastModifiedSync().toString().substring(0, 16),
+                    style: const TextStyle(color: Colors.white54)),
+                onTap: () => Navigator.pop(ctx, files[i]),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
+      ],
+    ),
   );
 }

@@ -166,9 +166,9 @@ Future<Map<String, dynamic>> sourceforgeUpdate(
 }
 
 Future<Map<String, dynamic>> githubUpdate(
-    {Duration timeout = const Duration(seconds: 6)}) async {
-  final url =
-      'https://api.github.com/repos/HemantKArya/BloomeeTunes/releases/latest';
+    {Duration timeout = const Duration(seconds: 6),
+    String repo = 'HemantKArya/BloomeeTunes'}) async {
+  final url = 'https://api.github.com/repos/$repo/releases/latest';
   PackageInfo packageInfo = await PackageInfo.fromPlatform();
   try {
     final response = await http.get(Uri.parse(url)).timeout(timeout);
@@ -217,7 +217,11 @@ Future<Map<String, dynamic>> githubUpdate(
 Future<Map<String, dynamic>> getAppUpdates() async {
   // Fork TV: gli aggiornamenti della Bloomee ufficiale (firma diversa) non si
   // possono installare sopra questa versione e ne cancellerebbero le funzioni TV.
+  // Controllo quindi le release di Bloomee TV.
   if (TvMode.isTv) {
+    try {
+      return await githubUpdate(repo: 'fabiodalez-dev/BloomeeTV');
+    } catch (_) {}
     final packageInfo = await PackageInfo.fromPlatform();
     return {
       'results': false,
