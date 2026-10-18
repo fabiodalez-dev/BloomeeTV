@@ -146,7 +146,15 @@ class TvConfig {
     lidarrKey = key;
     changes.value++;
   }
+
+  /// Scollega Jellyfin: tiene indirizzo e utente, cancella le credenziali.
+  static Future<void> clearJellyfin() =>
+      saveJellyfin(url: jellyfinUrl, user: jellyfinUser, token: '', userId: '');
+
+  /// Scollega Lidarr: tiene l'indirizzo, cancella la chiave.
+  static Future<void> clearLidarr() => saveLidarr(url: lidarrUrl, key: '');
 }
+
 
 /// Conversioni da elementi Jellyfin ai modelli dell'app, così i brani
 /// Jellyfin passano dallo stesso player, coda, testi e cronologia.

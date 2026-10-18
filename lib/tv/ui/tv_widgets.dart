@@ -4,6 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Palette dell'interfaccia TV.
+/// Mostra un segreto come pallini più le ultime 4 cifre, per riconoscerlo
+/// senza rivelarlo.
+String maskSecret(String s) =>
+    s.isEmpty ? '' : s.length <= 4 ? '•' * 8 : '${'•' * 8}${s.substring(s.length - 4)}';
+
 class TvColors {
   static const bg = Color(0xFF0B0810);
   static const surface = Color(0xFF17121F);
@@ -11,6 +16,9 @@ class TvColors {
   static const text = Color(0xFFF4EEF8);
   static const textDim = Color(0xFFA79BB3);
   static const accent = kTvFocusColor;
+  static const ok = Color(0xFF7BE495);
+  static const warn = Color(0xFFFFC46B);
+  static const error = Color(0xFFFF6B7A);
 }
 
 class TvText {
@@ -395,10 +403,25 @@ class TvTextField extends StatefulWidget {
     this.onSubmitted,
     this.prefixIcon,
     this.actionLabel = 'Fatto',
+    this.placeholder,
+    this.showFilled = false,
+    this.revealTail = false,
+    this.focusNode,
   });
   final TextEditingController controller;
   final String label;
   final bool obscure;
+
+  /// Testo grigio quando il campo è vuoto (es. "Non inserita"). Con un
+  /// placeholder l'etichetta resta sempre visibile sopra il valore.
+  final String? placeholder;
+
+  /// Spunta verde a destra quando il campo contiene qualcosa.
+  final bool showFilled;
+
+  /// Con [obscure], mostra le ultime 4 cifre (utile per le chiavi API).
+  final bool revealTail;
+  final FocusNode? focusNode;
   final ValueChanged<String>? onSubmitted;
   final IconData? prefixIcon;
   final String actionLabel;
@@ -422,12 +445,19 @@ class _TvTextFieldState extends State<TvTextField> {
   @override
   Widget build(BuildContext context) {
     final text = widget.controller.text;
-    final shown = widget.obscure ? '•' * text.length : text;
+    final shown = !widget.obscure
+        ? text
+        : widget.revealTail
+            ? maskSecret(text)
+            : '•' * text.length.clamp(0, 16);
+    final ph = widget.placeholder;
+    final filled = text.isNotEmpty;
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onFocusChange: (f) => setState(() => _focused = f),
       child: TvFocusable(
+        focusNode: widget.focusNode,
         onTap: _edit,
         borderRadius: BorderRadius.circular(10),
         child: Container(
@@ -444,18 +474,29 @@ class _TvTextFieldState extends State<TvTextField> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (text.isNotEmpty) Text(widget.label, style: TvText.cardSub.copyWith(fontSize: 12)),
+                  if (filled || ph != null) Text(widget.label, style: TvText.cardSub.copyWith(fontSize: 12)),
                   Text(
-                    text.isEmpty ? (_focused ? '${widget.label} — premi OK per scrivere' : widget.label) : shown,
+                    filled
+                        ? shown
+                        : _focused
+                            ? 'Premi OK per scrivere'
+                            : ph ?? widget.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: text.isEmpty
-                        ? TvText.cardSub.copyWith(fontSize: 16, color: _focused ? TvColors.accent : TvColors.textDim)
-                        : TvText.card.copyWith(fontSize: 17),
+                    style: filled
+                        ? TvText.card.copyWith(fontSize: 17, letterSpacing: widget.obscure ? 1.5 : null)
+                        : TvText.cardSub.copyWith(
+                            fontSize: 16,
+                            fontStyle: ph != null && !_focused ? FontStyle.italic : null,
+                            color: _focused ? TvColors.accent : TvColors.textDim),
                   ),
                 ],
               ),
             ),
+            if (widget.showFilled && filled) ...[
+              const Icon(Icons.check_circle_rounded, color: TvColors.ok, size: 22),
+              const SizedBox(width: 10),
+            ],
             Icon(Icons.keyboard_rounded, color: _focused ? TvColors.accent : TvColors.textDim),
           ]),
         ),
