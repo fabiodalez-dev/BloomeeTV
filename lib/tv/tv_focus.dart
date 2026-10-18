@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 /// Impostato dalla shell TV: porta il focus sul menu laterale.
@@ -36,8 +37,12 @@ class TvFocusable extends StatefulWidget {
     this.focusNode,
     this.scaleOnFocus = 1.0,
     this.debugLabel,
+    this.selected = false,
   });
 
+  /// Elemento "scelto" della sua riga (es. la scheda attiva): entrando nella
+  /// riga dall'alto o dal basso il focus va qui.
+  final bool selected;
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -285,6 +290,8 @@ class _TvRootState extends State<TvRoot> {
   }
 
   void _onFocusChanged() {
+    final pf = FocusManager.instance.primaryFocus;
+    if (pf != null && pf is! FocusScopeNode) tvRememberRowFocus(pf);
     final ctx = FocusManager.instance.primaryFocus?.context;
     if (ctx == null || !ctx.mounted) return;
     if (Scrollable.maybeOf(ctx) == null) return;
@@ -390,6 +397,47 @@ ThemeData tvTheme(ThemeData base) {
 /// elementi della stessa lista e scavalca le righe orizzontali (che sono
 /// liste a parte): qui scelgo la riga immediatamente sopra/sotto e, in
 /// quella, l'elemento più vicino in orizzontale.
+/// Memoria per riga: l'ultimo elemento che ha avuto il focus in ogni riga
+/// orizzontale, così tornando su una riga si riprende da dove si era.
+final Expando<FocusNode> _rowMemory = Expando('tv-row-memory');
+
+/// Identità della riga orizzontale di [n]: la lista orizzontale che lo
+/// contiene, oppure la fila di pulsanti (Row/Wrap) in cui sta. Null per le
+/// griglie e le liste verticali.
+Object? tvRowKeyOf(FocusNode n) {
+  final ctx = n.context;
+  if (ctx == null || !ctx.mounted) return null;
+  final s = Scrollable.maybeOf(ctx);
+  if (s != null && axisDirectionToAxis(s.axisDirection) == Axis.horizontal) return s;
+  final h = n.rect.height;
+  RenderObject? ro = ctx.findRenderObject()?.parent;
+  for (var i = 0; ro != null && i < 14; i++, ro = ro.parent) {
+    if (ro is RenderSliver || ro is RenderAbstractViewport) return null;
+    if (ro is RenderBox && ro.hasSize && ro.size.height > h * 2.2 + 24) return null;
+    if (ro is RenderWrap && ro.direction == Axis.horizontal && ro.childCount > 1) return ro;
+    if (ro is RenderFlex && ro.direction == Axis.horizontal && ro.childCount > 1) return ro;
+  }
+  return null;
+}
+
+/// Da chiamare a ogni cambio di focus.
+void tvRememberRowFocus(FocusNode n) {
+  final key = tvRowKeyOf(n);
+  if (key != null) _rowMemory[key] = n;
+}
+
+// Ultimo spostamento verticale: tornando indietro subito si rientra
+// esattamente nell'elemento da cui si era partiti.
+FocusNode? _vFrom;
+FocusNode? _vTo;
+bool _vDown = false;
+
+bool _isSelected(FocusNode n) =>
+    n.context?.findAncestorWidgetOfExactType<TvFocusable>()?.selected ?? false;
+
+/// Su/giù "a righe": va alla riga sopra o sotto; dentro quella riga sceglie
+/// l'elemento da cui si era usciti, altrimenti quello scelto (scheda attiva),
+/// altrimenti quello in colonna. Restituisce false se non c'è niente.
 bool tvMoveVertically(FocusNode current, {required bool down}) {
   final ctx = current.context;
   if (ctx == null || !ctx.mounted) return false;
@@ -414,13 +462,37 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
     }
   }
   if (candidates.isEmpty) return false;
+  final back = _vFrom;
+  if (identical(_vTo, current) && _vDown != down && back != null && candidates.contains(back)) {
+    _vFrom = current;
+    _vTo = back;
+    _vDown = down;
+    back.requestFocus();
+    return true;
+  }
   double gap(FocusNode n) => down ? n.rect.top - cur.bottom : cur.top - n.rect.bottom;
-  final nearest = candidates.map(gap).reduce((a, b) => a < b ? a : b);
-  // La "riga" più vicina: tutti gli elementi entro metà altezza del primo.
-  final row = candidates.where((n) => gap(n) <= nearest + 40).toList();
-  final cx = cur.center.dx;
-  row.sort((a, b) => (a.rect.center.dx - cx).abs().compareTo((b.rect.center.dx - cx).abs()));
-  row.first.requestFocus();
+  final nearest = candidates.reduce((a, b) => gap(a) <= gap(b) ? a : b);
+  // La riga: se l'elemento più vicino sta in una riga riconosciuta, tutta
+  // quella riga; altrimenti gli elementi alla stessa altezza.
+  final key = tvRowKeyOf(nearest);
+  final row = key != null
+      ? candidates.where((n) => identical(tvRowKeyOf(n), key)).toList()
+      : candidates.where((n) => (n.rect.center.dy - nearest.rect.center.dy).abs() < nearest.rect.height / 2).toList();
+  FocusNode? target;
+  if (key != null) {
+    final mem = _rowMemory[key];
+    if (mem != null && row.contains(mem)) target = mem;
+  }
+  target ??= row.where(_isSelected).firstOrNull;
+  if (target == null) {
+    final cx = cur.center.dx;
+    row.sort((a, b) => (a.rect.center.dx - cx).abs().compareTo((b.rect.center.dx - cx).abs()));
+    target = row.first;
+  }
+  _vFrom = current;
+  _vTo = target;
+  _vDown = down;
+  target.requestFocus();
   return true;
 }
 
@@ -434,7 +506,11 @@ class TvDirectionalFocusAction extends DirectionalFocusAction {
     final p = primaryFocus;
     if (p != null &&
         (intent.direction == TraversalDirection.up || intent.direction == TraversalDirection.down) &&
-        tvMoveVertically(p, down: intent.direction == TraversalDirection.down)) {
+        p.context != null &&
+        Scrollable.maybeOf(p.context!) != null) {
+      // Nelle pagine: solo righe sopra/sotto. Se non c'è niente (inizio o
+      // fine pagina) il focus resta dov'è, senza salti imprevedibili.
+      tvMoveVertically(p, down: intent.direction == TraversalDirection.down);
       return;
     }
     if (p != null &&

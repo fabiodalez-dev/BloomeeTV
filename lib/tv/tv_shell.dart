@@ -78,7 +78,9 @@ class _TvShellState extends State<TvShell> {
     for (final d in const [600, 1500, 3000]) {
       Future.delayed(Duration(milliseconds: d), () {
         final p = FocusManager.instance.primaryFocus;
-        if (mounted && (p == null || p is FocusScopeNode)) _focusContent();
+        if (mounted && (p == null || p is FocusScopeNode || !_visibleElement(p))) {
+          _focusContent(restore: false);
+        }
       });
     }
   }
@@ -112,6 +114,14 @@ class _TvShellState extends State<TvShell> {
   }
 
   void _focusMenu() => _itemNodes[_selected].requestFocus();
+
+  /// Elemento con il focus davvero visibile sullo schermo.
+  bool _visibleElement(FocusNode n) {
+    if (n.context == null) return false;
+    final r = n.rect;
+    final size = MediaQuery.sizeOf(context);
+    return !r.isEmpty && r.overlaps(Offset.zero & size) && r.width > 8 && r.height > 8;
+  }
 
   bool get _barVisible => context.read<MiniPlayerCubit>().state.isVisible;
 
@@ -166,7 +176,7 @@ class _TvShellState extends State<TvShell> {
       Future.delayed(Duration(milliseconds: ms), () {
         if (!mounted) return;
         final p = FocusManager.instance.primaryFocus;
-        final onElement = p != null && p is! FocusScopeNode && p.ancestors.contains(_contentScope);
+        final onElement = p != null && p is! FocusScopeNode && p.ancestors.contains(_contentScope) && _visibleElement(p);
         if (onElement && ms > 0) return;
         if (ms > 0 && (_menuScope.hasFocus || _barScope.hasFocus)) return;
         tvFocusFirstIn(_contentScope);
@@ -211,12 +221,7 @@ class _TvShellState extends State<TvShell> {
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
-      // Su dal primo: "In riproduzione" in fondo (scorciatoia per la barra).
-      if (cur > 0) {
-        _itemNodes[cur - 1].requestFocus();
-      } else if (cur == 0 && count > _entries.length) {
-        _itemNodes[_entries.length].requestFocus();
-      }
+      if (cur > 0) _itemNodes[cur - 1].requestFocus();
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.arrowRight) {
@@ -244,6 +249,19 @@ class _TvShellState extends State<TvShell> {
       if (tvMoveVertically(p, down: true)) return KeyEventResult.handled;
       if (Scrollable.maybeOf(p.context!) == null &&
           p.focusInDirection(TraversalDirection.down)) {
+        return KeyEventResult.handled;
+      }
+      // Niente sotto ma la pagina continua (righe non ancora costruite):
+      // scorro e riprovo; alla barra solo quando la pagina è davvero finita.
+      final sc = Scrollable.maybeOf(p.context!);
+      if (sc != null && sc.position.extentAfter > 1) {
+        final pos = sc.position;
+        pos
+            .animateTo((pos.pixels + pos.viewportDimension * 0.5).clamp(0, pos.maxScrollExtent),
+                duration: const Duration(milliseconds: 160), curve: Curves.easeOut)
+            .then((_) => WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (p.hasPrimaryFocus) tvMoveVertically(p, down: true);
+                }));
         return KeyEventResult.handled;
       }
       if (e is KeyDownEvent && _focusBar()) return KeyEventResult.handled;

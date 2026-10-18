@@ -256,6 +256,7 @@ class TvPillButton extends StatelessWidget {
       autofocus: autofocus,
       focusNode: focusNode,
       onTap: onTap,
+      selected: primary,
       scaleOnFocus: 1.05,
       borderRadius: BorderRadius.circular(40),
       child: Container(
