@@ -187,10 +187,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
 
   /// OK tenuto premuto su un album o un brano: "Scarica questo album".
   VoidCallback? _longPressFor(MediaItem item) => item.when(
-        track: (t) => t.album == null
-            ? null
-            : () => downloadAlbumWithLidarr(context, artist: _artists(t.artists), album: t.album!.title),
-        album: (a) => () => downloadAlbumWithLidarr(context, artist: _artists(a.artists), album: a.title),
+        track: (t) => () => showDownloadMenu(context, artist: _artists(t.artists), album: t.album?.title ?? '', track: t),
+        album: (a) => () => showDownloadMenu(context, artist: _artists(a.artists), album: a.title, albumTracks: () => pluginAlbumTracks(a)),
         artist: (_) => null,
         playlist: (_) => null,
       );
@@ -260,9 +258,7 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
               onFocused: () => _focus(_HeroInfo(t.title, _artists(t.artists), img, kind: 'Ascoltato di recente')),
               onTap: () => context.read<BloomeePlayerCubit>().bloomeePlayer.loadPlaylist(
                   Playlist(tracks: tracks, title: 'Ascoltati di recente'), idx: i, doPlay: true),
-              onLongPress: t.album == null
-                  ? null
-                  : () => downloadAlbumWithLidarr(context, artist: _artists(t.artists), album: t.album!.title),
+              onLongPress: () => showDownloadMenu(context, artist: _artists(t.artists), album: t.album?.title ?? '', track: t),
             );
           },
         );
@@ -477,7 +473,7 @@ class _HeroHeader extends StatelessWidget {
                     if (h.kind != null && (h.kind!.startsWith('Album') || h.kind!.startsWith('Brano')))
                       const Padding(
                         padding: EdgeInsets.only(top: 6),
-                        child: Text('OK per aprire · tieni premuto OK per scaricare l\'album', style: TvText.cardSub),
+                        child: Text('OK per aprire · tieni premuto OK per scaricare', style: TvText.cardSub),
                       ),
                   ],
                 ),

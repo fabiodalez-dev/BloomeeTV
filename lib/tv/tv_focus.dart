@@ -79,7 +79,15 @@ class _TvFocusableState extends State<TvFocusable> {
       }
       return KeyEventResult.handled;
     }
-    if (event is KeyRepeatEvent) return KeyEventResult.handled;
+    if (event is KeyRepeatEvent) {
+      // Android ripete il tasto quando è tenuto premuto: è già un long press.
+      if (widget.onLongPress != null && !_longFired) {
+        _holdTimer?.cancel();
+        _longFired = true;
+        widget.onLongPress?.call();
+      }
+      return KeyEventResult.handled;
+    }
     if (event is KeyUpEvent) {
       _holdTimer?.cancel();
       if (!_longFired) widget.onTap?.call();

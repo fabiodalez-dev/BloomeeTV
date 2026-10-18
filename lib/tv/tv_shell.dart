@@ -187,6 +187,18 @@ class _TvShellState extends State<TvShell> {
   // ── Indietro ─────────────────────────────────────────────────────────
 
   Future<bool> _onBack() async {
+    // Un dialogo o un menu aperto si chiude per primo (sta sul navigatore
+    // principale, sopra le pagine della sezione).
+    final root = Navigator.of(context, rootNavigator: true);
+    Route<dynamic>? top;
+    root.popUntil((r) {
+      top = r;
+      return true;
+    });
+    if (top is PopupRoute) {
+      root.pop();
+      return true;
+    }
     final overlay = context.read<PlayerOverlayCubit>();
     if (overlay.state && overlay.collapseUpNextPanel()) return true;
     if (overlay.state) {

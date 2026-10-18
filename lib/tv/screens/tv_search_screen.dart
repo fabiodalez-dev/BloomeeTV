@@ -211,10 +211,8 @@ class _TvSearchScreenState extends State<TvSearchScreen> {
         playlist: (p) => _push(OnlPlaylistView(playlist: p, pluginId: pluginId)),
       ),
       onLongPress: item.when(
-        track: (t) => t.album == null
-            ? null
-            : () => downloadAlbumWithLidarr(context, artist: _artists(t.artists), album: t.album!.title),
-        album: (a) => () => downloadAlbumWithLidarr(context, artist: _artists(a.artists), album: a.title),
+        track: (t) => () => showDownloadMenu(context, artist: _artists(t.artists), album: t.album?.title ?? '', track: t),
+        album: (a) => () => showDownloadMenu(context, artist: _artists(a.artists), album: a.title, albumTracks: () => pluginAlbumTracks(a)),
         artist: (_) => null,
         playlist: (_) => null,
       ),

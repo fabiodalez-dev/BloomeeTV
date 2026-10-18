@@ -1,8 +1,109 @@
+import 'package:Bloomee/blocs/downloader/cubit/downloader_cubit.dart';
+import 'package:Bloomee/core/di/service_locator.dart';
+import 'package:Bloomee/core/models/exported.dart';
+import 'package:Bloomee/plugins/utils/media_id.dart';
 import 'package:Bloomee/screens/widgets/snackbar.dart';
+import 'package:Bloomee/src/rust/api/plugin/commands.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:Bloomee/tv/connectors/lidarr_client.dart';
 import 'package:Bloomee/tv/tv_config.dart';
 import 'package:Bloomee/tv/ui/tv_widgets.dart';
 import 'package:flutter/material.dart';
+
+/// Menu "Scarica" (OK tenuto premuto): l'album sul server con Lidarr, oppure
+/// il brano o l'album sul Chromecast con il download di Bloomee (ascolto
+/// senza rete, compaiono in "Scaricati").
+Future<void> showDownloadMenu(
+  BuildContext context, {
+  required String artist,
+  required String album,
+  Track? track,
+  Future<List<Track>> Function()? albumTracks,
+}) async {
+  final choice = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: TvColors.surface,
+      title: Row(children: [
+        const Icon(Icons.download_rounded, color: TvColors.accent),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(track?.title ?? album,
+              style: TvText.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ]),
+      content: SizedBox(
+        width: 560,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (album.isNotEmpty)
+            ListTile(
+              autofocus: true,
+              leading: const Icon(Icons.cloud_download_rounded, color: TvColors.text),
+              title: const Text('Scarica l\'album sul server', style: TextStyle(color: TvColors.text)),
+              subtitle: Text('Lidarr · $album', style: const TextStyle(color: TvColors.textDim)),
+              onTap: () => Navigator.pop(ctx, 'lidarr'),
+            ),
+          if (track != null)
+            ListTile(
+              autofocus: album.isEmpty,
+              leading: const Icon(Icons.download_for_offline_rounded, color: TvColors.text),
+              title: const Text('Scarica il brano sul Chromecast', style: TextStyle(color: TvColors.text)),
+              subtitle: const Text('Per ascoltarlo senza rete, in Scaricati', style: TextStyle(color: TvColors.textDim)),
+              onTap: () => Navigator.pop(ctx, 'track'),
+            ),
+          if (albumTracks != null)
+            ListTile(
+              autofocus: album.isEmpty && track == null,
+              leading: const Icon(Icons.library_music_rounded, color: TvColors.text),
+              title: const Text('Scarica l\'album sul Chromecast', style: TextStyle(color: TvColors.text)),
+              subtitle: const Text('Tutti i brani, in Scaricati', style: TextStyle(color: TvColors.textDim)),
+              onTap: () => Navigator.pop(ctx, 'album'),
+            ),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
+      ],
+    ),
+  );
+  if (choice == null || !context.mounted) return;
+  final downloader = context.read<DownloaderCubit>();
+  switch (choice) {
+    case 'lidarr':
+      await downloadAlbumWithLidarr(context, artist: artist, album: album);
+    case 'track':
+      await downloader.downloadSong(track!);
+    case 'album':
+      SnackbarService.showMessage('Preparo i brani di "$album"…');
+      final tracks = await albumTracks!();
+      if (tracks.isEmpty) {
+        SnackbarService.showMessage('Non trovo i brani di "$album".');
+        return;
+      }
+      for (final t in tracks) {
+        await downloader.downloadSong(t, showSnackbar: false);
+      }
+      SnackbarService.showMessage('Scarico ${tracks.length} brani di "$album" sul Chromecast: li trovi in Scaricati.',
+          duration: const Duration(seconds: 5));
+  }
+}
+
+/// Brani di un album di un plugin (prima pagina, di solito l'album intero).
+Future<List<Track>> pluginAlbumTracks(AlbumSummary a) async {
+  final pluginId = pluginIdOf(a.id);
+  if (pluginId == null) return [];
+  try {
+    final r = await ServiceLocator.pluginService.execute(
+      pluginId: pluginId,
+      request: PluginRequest.contentResolver(
+        ContentResolverCommand.getAlbumDetails(id: localIdOf(a.id) ?? a.id),
+      ),
+    );
+    return r.maybeWhen(albumDetails: (d) => d.tracks.items, orElse: () => <Track>[]);
+  } catch (_) {
+    return [];
+  }
+}
 
 /// "Scarica questo album": trova l'album su Lidarr, chiede conferma
 /// mostrando cosa ha trovato, poi lo fa scaricare sul server.

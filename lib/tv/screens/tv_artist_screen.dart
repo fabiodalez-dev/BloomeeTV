@@ -270,9 +270,7 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
                         imageUrl: _art(all[i].thumbnail),
                         badge: Icons.play_arrow_rounded,
                         onTap: () => _play(all, i),
-                        onLongPress: all[i].album == null
-                            ? null
-                            : () => downloadAlbumWithLidarr(context, artist: widget.artist.name, album: all[i].album!.title),
+                        onLongPress: () => showDownloadMenu(context, artist: widget.artist.name, album: all[i].album?.title ?? '', track: all[i]),
                       ),
                     ),
                   ),
@@ -294,7 +292,7 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
                           imageUrl: _art(a.thumbnail),
                           onTap: () => Navigator.of(context)
                               .push(MaterialPageRoute(builder: (_) => AlbumView(album: a, pluginId: widget.pluginId))),
-                          onLongPress: () => downloadAlbumWithLidarr(context, artist: widget.artist.name, album: a.title),
+                          onLongPress: () => showDownloadMenu(context, artist: widget.artist.name, album: a.title, albumTracks: () => pluginAlbumTracks(a)),
                         );
                       },
                     ),
@@ -341,9 +339,7 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
                         subtitle: t.album?.title,
                         duration: t.durationMs == null ? null : Duration(milliseconds: t.durationMs!.toInt()),
                         onTap: () => _play(all, top.length + i),
-                        onLongPress: t.album == null
-                            ? null
-                            : () => downloadAlbumWithLidarr(context, artist: widget.artist.name, album: t.album!.title),
+                        onLongPress: () => showDownloadMenu(context, artist: widget.artist.name, album: t.album?.title ?? '', track: t),
                       );
                     },
                   ),

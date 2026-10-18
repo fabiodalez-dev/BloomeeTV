@@ -32,6 +32,16 @@ Future<bool> loginYouTube() async {
   }
 }
 
+/// Brani di un album o playlist di YouTube Music (per scaricarli sul Chromecast).
+Future<List<Track>> ytCollectionTracks(String browseId) async {
+  try {
+    final c = await TvConfig.youtube.collection(browseId);
+    return [for (final t in c.tracks) t.toTrack()];
+  } catch (_) {
+    return [];
+  }
+}
+
 Future<void> logoutYouTube() async {
   try {
     await _channel.invokeMethod('ytLogout');
@@ -78,9 +88,12 @@ Widget ytCard(BuildContext context, YtItem it, List<YtItem> all, String listTitl
     onFocused: onFocused,
     onTap: () => openYtItem(context, it, all, listTitle),
     onLongPress: it.kind == 'album'
-        ? () => downloadAlbumWithLidarr(context, artist: it.artistNames.isNotEmpty ? it.artistNames : it.subtitle.split(' • ').last, album: it.title)
-        : (it.kind == 'song' && it.album != null
-            ? () => downloadAlbumWithLidarr(context, artist: it.artistNames, album: it.album!.name)
+        ? () => showDownloadMenu(context,
+            artist: it.artistNames.isNotEmpty ? it.artistNames : it.subtitle.split(' • ').last,
+            album: it.title,
+            albumTracks: it.browseId == null ? null : () => ytCollectionTracks(it.browseId!))
+        : (it.kind == 'song'
+            ? () => showDownloadMenu(context, artist: it.artistNames, album: it.album?.name ?? '', track: it.toTrack())
             : null),
   );
 }
@@ -163,9 +176,7 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
                 subtitle: [items[i].artistNames, if (items[i].album != null) items[i].album!.name].where((e) => e.isNotEmpty).join(' · '),
                 duration: items[i].duration,
                 onTap: () => playYtItems(context, items, i, title),
-                onLongPress: items[i].album == null
-                    ? null
-                    : () => downloadAlbumWithLidarr(context, artist: items[i].artistNames, album: items[i].album!.name),
+                onLongPress: () => showDownloadMenu(context, artist: items[i].artistNames, album: items[i].album?.name ?? '', track: items[i].toTrack()),
               ),
             )
         else
@@ -353,7 +364,7 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
                         TvPillButton(
                           icon: Icons.cloud_download_rounded,
                           label: 'Scarica album',
-                          onTap: () => downloadAlbumWithLidarr(context, artist: artist, album: title),
+                          onTap: () => showDownloadMenu(context, artist: artist, album: title, albumTracks: () async => [for (final t in tracks) t.toTrack()]),
                         ),
                     ]),
                     const SizedBox(height: 22),
@@ -364,9 +375,7 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
                         subtitle: isAlbum ? null : tracks[i].artistNames,
                         duration: tracks[i].duration,
                         onTap: () => playYtItems(context, tracks, i, title),
-                        onLongPress: tracks[i].album == null
-                            ? null
-                            : () => downloadAlbumWithLidarr(context, artist: tracks[i].artistNames, album: tracks[i].album!.name),
+                        onLongPress: () => showDownloadMenu(context, artist: tracks[i].artistNames, album: tracks[i].album?.name ?? '', track: tracks[i].toTrack()),
                       ),
                   ],
                 ),

@@ -557,11 +557,12 @@ class _AlbumHeaderContent extends StatelessWidget {
           _PremiumCircularButton(
             icon: Icons.cloud_download_rounded,
             isActive: false,
-            tooltip: 'Scarica questo album sul server (Lidarr)',
-            onTap: () => downloadAlbumWithLidarr(
+            tooltip: 'Scarica questo album',
+            onTap: () => showDownloadMenu(
               context,
               artist: artists,
               album: title,
+              albumTracks: () async => List.of(tracks),
             ),
           ),
         if (url != null && !TvMode.isTv)
