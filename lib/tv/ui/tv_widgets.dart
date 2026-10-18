@@ -363,7 +363,15 @@ class TvMessage extends StatelessWidget {
 }
 
 /// Riga di brano focusabile per le liste di tracce.
-class TvTrackTile extends StatelessWidget {
+/// Titolo del brano in riproduzione (lo aggiorna la shell TV): le righe dei
+/// brani lo usano per mostrare quale sta suonando.
+final ValueNotifier<String?> tvNowPlayingTitle = ValueNotifier<String?>(null);
+
+// Riga che sta suonando: se il focus è su di lei quando il brano cambia, il
+// focus passa alla riga del brano nuovo (segue la riproduzione).
+FocusNode? _playingTileNode;
+
+class TvTrackTile extends StatefulWidget {
   const TvTrackTile({
     super.key,
     required this.index,
@@ -372,7 +380,7 @@ class TvTrackTile extends StatelessWidget {
     this.duration,
     this.onTap,
     this.onLongPress,
-    this.playing = false,
+    this.playing,
     this.autofocus = false,
   });
   final int index;
@@ -381,25 +389,70 @@ class TvTrackTile extends StatelessWidget {
   final Duration? duration;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
-  final bool playing;
+  /// Se null, la riga capisce da sola se è il brano in riproduzione.
+  final bool? playing;
   final bool autofocus;
 
   static String fmt(Duration d) =>
       '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 
   @override
+  State<TvTrackTile> createState() => _TvTrackTileState();
+}
+
+class _TvTrackTileState extends State<TvTrackTile> {
+  final _node = FocusNode(debugLabel: 'tv-track');
+
+  static String _norm(String? s) => (s ?? '').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+
+  bool get _isPlaying => widget.playing ?? (_norm(tvNowPlayingTitle.value) == _norm(widget.title) && widget.title.isNotEmpty);
+
+  @override
+  void initState() {
+    super.initState();
+    tvNowPlayingTitle.addListener(_onTrackChanged);
+    if (_isPlaying) _playingTileNode = _node;
+  }
+
+  @override
+  void dispose() {
+    tvNowPlayingTitle.removeListener(_onTrackChanged);
+    if (identical(_playingTileNode, _node)) _playingTileNode = null;
+    _node.dispose();
+    super.dispose();
+  }
+
+  void _onTrackChanged() {
+    if (!mounted) return;
+    final nowPlaying = _isPlaying;
+    if (nowPlaying) {
+      final prev = _playingTileNode;
+      _playingTileNode = _node;
+      // Il focus era sulla riga del brano precedente: lo sposto qui.
+      if (prev != null && !identical(prev, _node) && prev.hasPrimaryFocus) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _node.requestFocus();
+        });
+      }
+    }
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final playing = _isPlaying;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: TvFocusable(
-        autofocus: autofocus,
-        onTap: onTap,
-        onLongPress: onLongPress,
+        focusNode: _node,
+        autofocus: widget.autofocus,
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
         borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
-            color: TvColors.surface,
+            color: playing ? TvColors.surfaceHi : TvColors.surface,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
@@ -407,29 +460,29 @@ class TvTrackTile extends StatelessWidget {
               SizedBox(
                 width: 36,
                 child: playing
-                    ? const Icon(Icons.graphic_eq_rounded,
-                        color: TvColors.accent)
-                    : Text('$index', style: TvText.cardSub),
+                    ? const Icon(Icons.graphic_eq_rounded, color: TvColors.accent)
+                    : Text('${widget.index}', style: TvText.cardSub),
               ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
+                    Text(widget.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TvText.card.copyWith(
-                            color: playing ? TvColors.accent : TvColors.text)),
-                    if (subtitle != null && subtitle!.isNotEmpty)
-                      Text(subtitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TvText.cardSub),
+                        style: TvText.card.copyWith(color: playing ? TvColors.accent : TvColors.text)),
+                    if (widget.subtitle != null && widget.subtitle!.isNotEmpty)
+                      Text(widget.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.cardSub),
                   ],
                 ),
               ),
-              if (duration != null && duration! > Duration.zero)
-                Text(fmt(duration!), style: TvText.cardSub),
+              if (playing)
+                const Padding(
+                  padding: EdgeInsets.only(right: 14),
+                  child: Text('In riproduzione', style: TextStyle(color: TvColors.accent, fontSize: 14, fontFamily: 'Gilroy')),
+                ),
+              if (widget.duration != null && widget.duration! > Duration.zero)
+                Text(TvTrackTile.fmt(widget.duration!), style: TvText.cardSub),
             ],
           ),
         ),

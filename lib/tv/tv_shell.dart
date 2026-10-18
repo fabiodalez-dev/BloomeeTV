@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
 import 'package:Bloomee/blocs/mini_player/mini_player_cubit.dart';
 import 'package:Bloomee/blocs/player_overlay/player_overlay_cubit.dart';
 import 'package:Bloomee/screens/widgets/mini_player_widget.dart';
@@ -69,6 +72,7 @@ class _TvShellState extends State<TvShell> {
   int _selected = 0;
   bool _menuFocused = false;
   FocusNode? _lastContent;
+  StreamSubscription? _nowPlayingSub;
 
   _TvPage? get _page => _entries[_selected].page;
 
@@ -78,6 +82,7 @@ class _TvShellState extends State<TvShell> {
     _menuScope.addListener(_onMenuFocus);
     tvFocusMenu = _focusMenu;
     FocusManager.instance.addListener(_trackContentFocus);
+    _nowPlayingSub = context.read<BloomeePlayerCubit>().bloomeePlayer.mediaItem.listen((mi) => tvNowPlayingTitle.value = mi?.title);
     // Primo focus sul contenuto appena la home ha qualcosa da mostrare.
     for (final d in const [600, 1500, 3000]) {
       Future.delayed(Duration(milliseconds: d), () {
@@ -92,6 +97,7 @@ class _TvShellState extends State<TvShell> {
   @override
   void dispose() {
     FocusManager.instance.removeListener(_trackContentFocus);
+    _nowPlayingSub?.cancel();
     if (tvFocusMenu == _focusMenu) tvFocusMenu = null;
     _menuScope.dispose();
     _contentScope.dispose();
