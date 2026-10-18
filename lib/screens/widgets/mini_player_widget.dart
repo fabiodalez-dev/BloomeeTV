@@ -159,6 +159,7 @@ class _MiniPlayerCardState extends State<MiniPlayerCard>
     final thumbUrl = song.thumbnail.urlLow ?? song.thumbnail.url;
 
     return TvGestureDetector(
+      tvFocusable: false,
       onTap: () {
         HapticFeedback.selectionClick();
         context.read<PlayerOverlayCubit>().showPlayer();

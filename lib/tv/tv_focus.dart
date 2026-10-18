@@ -65,10 +65,36 @@ class _TvFocusableState extends State<TvFocusable> {
   // (dopo la chiusura di un dialogo il focus torna qui e riceverebbe il
   // rilascio del tasto premuto nel dialogo, riaprendolo).
   bool _pressed = false;
+  FocusNode? _own;
+  FocusNode get _node => widget.focusNode ?? (_own ??= FocusNode(debugLabel: widget.debugLabel));
+
+  @override
+  void initState() {
+    super.initState();
+    _node.addListener(_sync);
+  }
+
+  @override
+  void didUpdateWidget(covariant TvFocusable old) {
+    super.didUpdateWidget(old);
+    final before = old.focusNode ?? _own;
+    if (!identical(before, _node)) {
+      before?.removeListener(_sync);
+      _node.addListener(_sync);
+    }
+  }
+
+  // L'evidenziazione segue sempre il focus reale (mai "accesa" per errore).
+  void _sync() {
+    final f = _node.hasPrimaryFocus;
+    if (f != _focused && mounted) setState(() => _focused = f);
+  }
 
   @override
   void dispose() {
     _holdTimer?.cancel();
+    _node.removeListener(_sync);
+    _own?.dispose();
     super.dispose();
   }
 
@@ -112,14 +138,13 @@ class _TvFocusableState extends State<TvFocusable> {
   @override
   Widget build(BuildContext context) {
     final interactive = widget.onTap != null || widget.onLongPress != null;
+    _focused = _node.hasPrimaryFocus;
     return Focus(
-      focusNode: widget.focusNode,
-      debugLabel: widget.debugLabel,
+      focusNode: _node,
       autofocus: widget.autofocus,
       canRequestFocus: interactive,
       skipTraversal: !interactive,
       onKeyEvent: _onKey,
-      onFocusChange: (f) => setState(() => _focused = f),
       child: AnimatedScale(
         scale: _focused ? widget.scaleOnFocus : 1.0,
         duration: const Duration(milliseconds: 120),
@@ -179,8 +204,11 @@ class TvGestureDetector extends StatelessWidget {
     this.behavior,
     this.excludeFromSemantics = false,
     this.tvBorderRadius = const BorderRadius.all(Radius.circular(10)),
+    this.tvFocusable = true,
   });
 
+  /// Su TV: false = non riceve il focus (lo ricevono i pulsanti interni).
+  final bool tvFocusable;
   final Widget? child;
   final GestureTapCallback? onTap;
   final GestureTapDownCallback? onTapDown;
@@ -242,7 +270,7 @@ class TvGestureDetector extends StatelessWidget {
         (onLongPressStart != null
             ? () => onLongPressStart!(const LongPressStartDetails())
             : null);
-    if (!TvMode.isTv || (tap == null && long == null)) return detector;
+    if (!TvMode.isTv || !tvFocusable || (tap == null && long == null)) return detector;
     return TvFocusable(
       onTap: tap,
       onLongPress: long,
@@ -461,6 +489,27 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
       candidates.add(n);
     }
   }
+  // Prima si resta nella lista/griglia in cui si è: se fuori schermo ci sono
+  // altri elementi in quella direzione, la lista scorre invece di saltare
+  // fuori (alle schede o alla barra).
+  final pos = scrollable.position;
+  final inSame = candidates.where((n) => n.context != null && identical(Scrollable.maybeOf(n.context!), scrollable)).toList();
+  final more = down ? pos.extentAfter > 1 : pos.extentBefore > 1;
+  if (inSame.isEmpty && more && axisDirectionToAxis(scrollable.axisDirection) == Axis.vertical) {
+    final step = pos.viewportDimension * 0.45 * (down ? 1 : -1);
+    pos
+        .animateTo((pos.pixels + step).clamp(pos.minScrollExtent, pos.maxScrollExtent),
+            duration: const Duration(milliseconds: 160), curve: Curves.easeOut)
+        .then((_) => WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (current.hasPrimaryFocus) tvMoveVertically(current, down: down);
+            }));
+    return true;
+  }
+  if (inSame.isNotEmpty) {
+    candidates
+      ..clear()
+      ..addAll(inSame);
+  }
   if (candidates.isEmpty) return false;
   final back = _vFrom;
   if (identical(_vTo, current) && _vDown != down && back != null && candidates.contains(back)) {
@@ -478,12 +527,12 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
   final row = key != null
       ? candidates.where((n) => identical(tvRowKeyOf(n), key)).toList()
       : candidates.where((n) => (n.rect.center.dy - nearest.rect.center.dy).abs() < nearest.rect.height / 2).toList();
-  FocusNode? target;
-  if (key != null) {
+  // Prima la scheda attiva, poi l'ultimo elemento usato nella riga.
+  FocusNode? target = row.where(_isSelected).firstOrNull;
+  if (target == null && key != null) {
     final mem = _rowMemory[key];
     if (mem != null && row.contains(mem)) target = mem;
   }
-  target ??= row.where(_isSelected).firstOrNull;
   if (target == null) {
     final cx = cur.center.dx;
     row.sort((a, b) => (a.rect.center.dx - cx).abs().compareTo((b.rect.center.dx - cx).abs()));
