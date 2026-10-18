@@ -1,5 +1,7 @@
 import 'package:Bloomee/blocs/player_overlay/player_overlay_cubit.dart';
 import 'package:Bloomee/screens/screen/player_screen.dart';
+import 'package:Bloomee/tv/screens/tv_player_screen.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -135,9 +137,9 @@ class _PersistentPlayerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Material(
+    return Material(
       color: Colors.transparent,
-      child: AudioPlayerView(),
+      child: TvMode.isTv ? const TvPlayerScreen() : const AudioPlayerView(),
     );
   }
 }

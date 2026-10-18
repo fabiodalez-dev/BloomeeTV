@@ -448,6 +448,32 @@ class TvDirectionalFocusAction extends DirectionalFocusAction {
   }
 }
 
+/// Mette il focus sul primo elemento visibile (in alto a sinistra) dentro
+/// [scope]. Restituisce false se non ce n'è ancora nessuno (pagina in
+/// caricamento).
+bool tvFocusFirstIn(FocusScopeNode scope) {
+  final view = WidgetsBinding.instance.platformDispatcher.views.first;
+  final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+  FocusNode? best;
+  for (final n in scope.traversalDescendants) {
+    if (n is FocusScopeNode || !n.canRequestFocus || n.skipTraversal) continue;
+    final c = n.context;
+    if (c == null || !c.mounted) continue;
+    final r = n.rect;
+    if (r.isEmpty || !screen.overlaps(r)) continue;
+    if (best == null) {
+      best = n;
+      continue;
+    }
+    final b = best.rect;
+    // Prima la riga più in alto (con tolleranza), poi più a sinistra.
+    if (r.top < b.top - 60 || ((r.top - b.top).abs() <= 60 && r.left < b.left)) best = n;
+  }
+  if (best == null) return false;
+  best.requestFocus();
+  return true;
+}
+
 /// Azioni da passare a MaterialApp su TV.
 Map<Type, Action<Intent>>? tvActions() => TvMode.isTv
     ? {...WidgetsApp.defaultActions, DirectionalFocusIntent: TvDirectionalFocusAction()}

@@ -40,8 +40,10 @@ class _TvShellState extends State<TvShell> {
   static const _entries = [
     _MenuEntry(Icons.home_rounded, 'Home', branch: 0),
     _MenuEntry(Icons.search_rounded, 'Cerca', branch: 2),
-    _MenuEntry(Icons.library_music_rounded, 'La tua musica', page: _TvPage.jellyfin),
-    _MenuEntry(Icons.smart_display_rounded, 'Il mio YouTube', page: _TvPage.youtube),
+    _MenuEntry(Icons.library_music_rounded, 'La tua musica',
+        page: _TvPage.jellyfin),
+    _MenuEntry(Icons.smart_display_rounded, 'Il mio YouTube',
+        page: _TvPage.youtube),
     _MenuEntry(Icons.favorite_rounded, 'Libreria', branch: 1),
     _MenuEntry(Icons.download_done_rounded, 'Scaricati', branch: 4),
     _MenuEntry(Icons.settings_rounded, 'Impostazioni', page: _TvPage.settings),
@@ -49,8 +51,11 @@ class _TvShellState extends State<TvShell> {
 
   final _menuScope = FocusScopeNode(debugLabel: 'tv-menu');
   final _contentScope = FocusScopeNode(debugLabel: 'tv-content');
-  late final List<FocusNode> _itemNodes =
-      List.generate(_entries.length + 1, (i) => FocusNode(debugLabel: 'tv-menu-$i'));
+  // Barra del brano in riproduzione: zona a sé, raggiungibile con giù dal
+  // fondo della pagina o con destra da "In riproduzione" nel menu.
+  final _barScope = FocusScopeNode(debugLabel: 'tv-bar');
+  late final List<FocusNode> _itemNodes = List.generate(
+      _entries.length + 1, (i) => FocusNode(debugLabel: 'tv-menu-$i'));
   final _navKeys = {
     _TvPage.jellyfin: GlobalKey<NavigatorState>(),
     _TvPage.youtube: GlobalKey<NavigatorState>(),
@@ -84,6 +89,7 @@ class _TvShellState extends State<TvShell> {
     if (tvFocusMenu == _focusMenu) tvFocusMenu = null;
     _menuScope.dispose();
     _contentScope.dispose();
+    _barScope.dispose();
     for (final n in _itemNodes) {
       n.dispose();
     }
@@ -98,26 +104,74 @@ class _TvShellState extends State<TvShell> {
 
   void _trackContentFocus() {
     final p = FocusManager.instance.primaryFocus;
-    if (p != null && p is! FocusScopeNode && p.ancestors.contains(_contentScope)) {
+    if (p != null &&
+        p is! FocusScopeNode &&
+        p.ancestors.contains(_contentScope)) {
       _lastContent = p;
     }
   }
 
   void _focusMenu() => _itemNodes[_selected].requestFocus();
 
+  bool get _barVisible => context.read<MiniPlayerCubit>().state.isVisible;
+
+  /// Porta il focus sul pulsante play/pausa della barra (o sul primo).
+  bool _focusBar() {
+    if (!_barVisible) return false;
+    final nodes = _barScope.traversalDescendants
+        .where((n) =>
+            n.canRequestFocus && n is! FocusScopeNode && n.context != null)
+        .toList();
+    if (nodes.isEmpty) return false;
+    // Il pulsante più largo vicino al centro è play/pausa; in mancanza, il primo.
+    nodes.sort((a, b) => a.rect.left.compareTo(b.rect.left));
+    final play = nodes.length >= 3 ? nodes[nodes.length - 3] : nodes.first;
+    play.requestFocus();
+    return true;
+  }
+
+  KeyEventResult _onBarKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent)
+      return KeyEventResult.ignored;
+    final p = FocusManager.instance.primaryFocus;
+    if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _focusContent();
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.arrowDown)
+      return KeyEventResult.handled;
+    if (p != null &&
+        (e.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            e.logicalKey == LogicalKeyboardKey.arrowRight)) {
+      final left = e.logicalKey == LogicalKeyboardKey.arrowLeft;
+      if (!tvMoveHorizontally(p, left: left) && left) _focusMenu();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   void _focusContent({bool restore = true}) {
     final last = _lastContent;
-    if (restore && last != null && last.context != null && last.canRequestFocus && last.ancestors.contains(_contentScope)) {
+    if (restore &&
+        last != null &&
+        last.context != null &&
+        last.canRequestFocus &&
+        last.ancestors.contains(_contentScope)) {
       last.requestFocus();
       return;
     }
-    _contentScope.requestFocus();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final p = FocusManager.instance.primaryFocus;
-      if (p == null || p is FocusScopeNode) {
-        (p as FocusScopeNode? ?? _contentScope).nextFocus();
-      }
-    });
+    // Primo elemento visibile della pagina; se la pagina sta ancora
+    // caricando, riprovo finché compare qualcosa.
+    for (final ms in const [0, 250, 600, 1200, 2500]) {
+      Future.delayed(Duration(milliseconds: ms), () {
+        if (!mounted) return;
+        final p = FocusManager.instance.primaryFocus;
+        final onElement = p != null && p is! FocusScopeNode && p.ancestors.contains(_contentScope);
+        if (onElement && ms > 0) return;
+        if (ms > 0 && (_menuScope.hasFocus || _barScope.hasFocus)) return;
+        tvFocusFirstIn(_contentScope);
+      });
+    }
   }
 
   void _select(int i) {
@@ -132,20 +186,24 @@ class _TvShellState extends State<TvShell> {
         widget.navigationShell.route.branches[b].navigatorKey.currentState
             ?.popUntil((r) => r.isFirst);
       }
-      widget.navigationShell.goBranch(b, initialLocation: b == widget.navigationShell.currentIndex);
+      widget.navigationShell.goBranch(b,
+          initialLocation: b == widget.navigationShell.currentIndex);
     } else if (reselect) {
       _navKeys[e.page]?.currentState?.popUntil((r) => r.isFirst);
     }
     _lastContent = null;
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (mounted) _focusContent(restore: false);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      _contentScope.requestFocus();
+      _focusContent(restore: false);
     });
   }
 
   // ── Tasti ────────────────────────────────────────────────────────────
 
   KeyEventResult _onMenuKey(FocusNode node, KeyEvent e) {
-    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent)
+      return KeyEventResult.ignored;
     final cur = _itemNodes.indexWhere((n) => n.hasPrimaryFocus);
     final count = _visibleItemCount;
     if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -153,28 +211,52 @@ class _TvShellState extends State<TvShell> {
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
-      if (cur > 0) _itemNodes[cur - 1].requestFocus();
+      // Su dal primo: "In riproduzione" in fondo (scorciatoia per la barra).
+      if (cur > 0) {
+        _itemNodes[cur - 1].requestFocus();
+      } else if (cur == 0 && count > _entries.length) {
+        _itemNodes[_entries.length].requestFocus();
+      }
       return KeyEventResult.handled;
     }
     if (e.logicalKey == LogicalKeyboardKey.arrowRight) {
+      if (cur == _entries.length && _focusBar()) return KeyEventResult.handled;
       _focusContent();
       return KeyEventResult.handled;
     }
-    if (e.logicalKey == LogicalKeyboardKey.arrowLeft) return KeyEventResult.handled;
+    if (e.logicalKey == LogicalKeyboardKey.arrowLeft)
+      return KeyEventResult.handled;
     return KeyEventResult.ignored;
   }
 
   int get _visibleItemCount =>
-      _entries.length + (context.read<MiniPlayerCubit>().state.isVisible ? 1 : 0);
+      _entries.length +
+      (context.read<MiniPlayerCubit>().state.isVisible ? 1 : 0);
 
   KeyEventResult _onContentKey(FocusNode node, KeyEvent e) {
+    if ((e is KeyDownEvent || e is KeyRepeatEvent) &&
+        e.logicalKey == LogicalKeyboardKey.arrowDown) {
+      final p = FocusManager.instance.primaryFocus;
+      if (p == null || p is FocusScopeNode) return KeyEventResult.ignored;
+      if (p.context?.findAncestorStateOfType<EditableTextState>() != null)
+        return KeyEventResult.ignored;
+      // Giù: elemento sotto; in fondo alla pagina, la barra del brano.
+      if (tvMoveVertically(p, down: true)) return KeyEventResult.handled;
+      if (Scrollable.maybeOf(p.context!) == null &&
+          p.focusInDirection(TraversalDirection.down)) {
+        return KeyEventResult.handled;
+      }
+      if (e is KeyDownEvent && _focusBar()) return KeyEventResult.handled;
+      return KeyEventResult.handled;
+    }
     if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.arrowLeft) {
       return KeyEventResult.ignored;
     }
     final before = FocusManager.instance.primaryFocus;
     if (before == null) return KeyEventResult.ignored;
     // Nei campi di testo la freccia sposta il cursore.
-    final editable = before.context?.findAncestorStateOfType<EditableTextState>();
+    final editable =
+        before.context?.findAncestorStateOfType<EditableTextState>();
     if (editable != null && !editable.widget.readOnly) {
       return KeyEventResult.ignored;
     }
@@ -255,7 +337,9 @@ class _TvShellState extends State<TvShell> {
         listener: (_, visible) {
           if (visible) {
             Future.delayed(const Duration(milliseconds: 450), () {
-              final n = tvPlayerAnchor.descendants.where((d) => d.canRequestFocus).firstOrNull;
+              final n = tvPlayerAnchor.descendants
+                  .where((d) => d.canRequestFocus)
+                  .firstOrNull;
               n?.requestFocus();
             });
           }
@@ -275,39 +359,58 @@ class _TvShellState extends State<TvShell> {
                 children: [
                   Positioned.fill(
                     left: 92,
-                    child: Focus(
-                      canRequestFocus: false,
-                      skipTraversal: true,
-                      onKeyEvent: _onContentKey,
-                      child: FocusScope(
-                        node: _contentScope,
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: IndexedStack(
-                                index: stackIndex,
-                                children: [
-                                  ExcludeFocus(excluding: stackIndex != 0, child: widget.navigationShell),
-                                  ExcludeFocus(
-                                      excluding: stackIndex != 1,
-                                      child: _LazyPage(active: stackIndex == 1, builder: () => _pageNavigator(_TvPage.jellyfin))),
-                                  ExcludeFocus(
-                                      excluding: stackIndex != 2,
-                                      child: _LazyPage(active: stackIndex == 2, builder: () => _pageNavigator(_TvPage.youtube))),
-                                  ExcludeFocus(
-                                      excluding: stackIndex != 3,
-                                      child: _LazyPage(active: stackIndex == 3, builder: () => _pageNavigator(_TvPage.settings))),
-                                ],
-                              ),
+                    child: Column(children: [
+                      Expanded(
+                        child: Focus(
+                          canRequestFocus: false,
+                          skipTraversal: true,
+                          onKeyEvent: _onContentKey,
+                          child: FocusScope(
+                            node: _contentScope,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: IndexedStack(
+                                    index: stackIndex,
+                                    children: [
+                                      ExcludeFocus(
+                                          excluding: stackIndex != 0,
+                                          child: widget.navigationShell),
+                                      ExcludeFocus(
+                                          excluding: stackIndex != 1,
+                                          child: _LazyPage(
+                                              active: stackIndex == 1,
+                                              builder: () => _pageNavigator(
+                                                  _TvPage.jellyfin))),
+                                      ExcludeFocus(
+                                          excluding: stackIndex != 2,
+                                          child: _LazyPage(
+                                              active: stackIndex == 2,
+                                              builder: () => _pageNavigator(
+                                                  _TvPage.youtube))),
+                                      ExcludeFocus(
+                                          excluding: stackIndex != 3,
+                                          child: _LazyPage(
+                                              active: stackIndex == 3,
+                                              builder: () => _pageNavigator(
+                                                  _TvPage.settings))),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const Padding(
-                              padding: EdgeInsets.fromLTRB(32, 0, 32, 12),
-                              child: MiniPlayerWidget(),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
+                      FocusScope(
+                        node: _barScope,
+                        onKeyEvent: _onBarKey,
+                        child: const Padding(
+                          padding: EdgeInsets.fromLTRB(32, 0, 32, 12),
+                          child: MiniPlayerWidget(),
+                        ),
+                      ),
+                    ]),
                   ),
                   // Il menu si allarga sopra il contenuto quando ha il focus.
                   Positioned(
@@ -323,7 +426,8 @@ class _TvShellState extends State<TvShell> {
                         selected: _selected,
                         expanded: _menuFocused,
                         onSelect: _select,
-                        onNowPlaying: () => context.read<PlayerOverlayCubit>().showPlayer(),
+                        onNowPlaying: () =>
+                            context.read<PlayerOverlayCubit>().showPlayer(),
                       ),
                     ),
                   ),
@@ -376,14 +480,17 @@ class _SideMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showNowPlaying = context.select<MiniPlayerCubit, bool>((c) => c.state.isVisible);
+    final showNowPlaying =
+        context.select<MiniPlayerCubit, bool>((c) => c.state.isVisible);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       width: expanded ? 270 : 92,
       decoration: BoxDecoration(
         color: expanded ? const Color(0xF2120D19) : const Color(0x99120D19),
-        boxShadow: expanded ? const [BoxShadow(color: Colors.black54, blurRadius: 40)] : const [],
+        boxShadow: expanded
+            ? const [BoxShadow(color: Colors.black54, blurRadius: 40)]
+            : const [],
       ),
       child: ClipRect(
         child: OverflowBox(
@@ -398,7 +505,8 @@ class _SideMenu extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 6, bottom: 14),
                   child: Row(children: [
-                    Image.asset('assets/icons/BloomeeLogoFG.png', width: 42, height: 42),
+                    Image.asset('assets/icons/BloomeeLogoFG.png',
+                        width: 42, height: 42),
                     const SizedBox(width: 14),
                     AnimatedOpacity(
                       opacity: expanded ? 1 : 0,
@@ -460,7 +568,9 @@ class _MenuItemState extends State<_MenuItem> {
 
   @override
   Widget build(BuildContext context) {
-    final fg = _focused ? TvColors.bg : (widget.selected ? TvColors.accent : TvColors.textDim);
+    final fg = _focused
+        ? TvColors.bg
+        : (widget.selected ? TvColors.accent : TvColors.textDim);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Focus(
@@ -471,7 +581,8 @@ class _MenuItemState extends State<_MenuItem> {
             widget.onTap();
             return KeyEventResult.handled;
           }
-          if (kTvSelectKeys.contains(e.logicalKey)) return KeyEventResult.handled;
+          if (kTvSelectKeys.contains(e.logicalKey))
+            return KeyEventResult.handled;
           return KeyEventResult.ignored;
         },
         child: GestureDetector(
@@ -481,7 +592,9 @@ class _MenuItemState extends State<_MenuItem> {
             width: 238,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
-              color: _focused ? TvColors.text : (widget.selected ? TvColors.surfaceHi : Colors.transparent),
+              color: _focused
+                  ? TvColors.text
+                  : (widget.selected ? TvColors.surfaceHi : Colors.transparent),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
