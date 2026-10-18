@@ -11,7 +11,7 @@ import 'package:Bloomee/screens/screen/common_views/album_view.dart';
 import 'package:Bloomee/src/rust/api/plugin/commands.dart' show ContentSearchFilter;
 import 'package:Bloomee/tv/lidarr_action.dart';
 import 'package:Bloomee/tv/connectors/ytmusic_account.dart';
-import 'package:Bloomee/tv/screens/tv_youtube_screen.dart' show ytCard;
+import 'package:Bloomee/tv/screens/tv_youtube_screen.dart' show ytCard, ytSectionMore;
 import 'package:Bloomee/tv/tv_config.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:Bloomee/tv/ui/tv_widgets.dart';
@@ -168,6 +168,10 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
             final ytSections = (_yt?.sections ?? const <YtSection>[])
                 .where((x) => x.items.isNotEmpty && !x.items.every((i) => i.kind == 'song'))
                 .toList();
+            // Sezione dei brani più ascoltati: serve solo per il suo "Tutti ›".
+            final ytSongs = (_yt?.sections ?? const <YtSection>[])
+                .where((x) => x.items.isNotEmpty && x.items.every((i) => i.kind == 'song') && x.moreBrowseId != null)
+                .firstOrNull;
             final ytHasAlbums = ytSections.any((x) => x.items.any((i) => i.kind == 'album'));
             final ytHasArtists = ytSections.any((x) => x.items.any((i) => i.kind == 'artist'));
             final all = _allTracks(d, s);
@@ -270,6 +274,7 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
                   SliverToBoxAdapter(
                     child: TvRow(
                       title: 'Brani più famosi',
+                      onTitleTap: ytSongs == null ? null : ytSectionMore(context, ytSongs, subtitle: widget.artist.name),
                       // Subito le top song, poi la riga si allunga man mano
                       // che arrivano gli altri brani.
                       itemCount: all.length.clamp(0, 20),
@@ -287,6 +292,7 @@ class _TvArtistScreenState extends State<TvArtistScreen> {
                   SliverToBoxAdapter(
                     child: TvRow(
                       title: sec.title,
+                      onTitleTap: ytSectionMore(context, sec, subtitle: widget.artist.name),
                       itemCount: sec.items.length,
                       itemBuilder: (_, i) => ytCard(context, sec.items[i], sec.items, sec.title),
                     ),

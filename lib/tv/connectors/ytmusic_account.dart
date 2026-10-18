@@ -43,9 +43,12 @@ class YtRef {
 
 /// Una sezione (riga) di YouTube Music: titolo + elementi.
 class YtSection {
-  YtSection(this.title, this.items);
+  YtSection(this.title, this.items, {this.moreBrowseId, this.moreParams});
   final String title;
   final List<YtItem> items;
+  /// Pagina con l'elenco completo (tutti gli album, tutti i brani…).
+  final String? moreBrowseId;
+  final String? moreParams;
 }
 
 /// Dati extra dell'artista: descrizione completa, ascoltatori mensili,
@@ -247,6 +250,33 @@ class YtMusicClient {
   Future<List<YtItem>> searchType(String query, String kind) async =>
       _flatItems(await _post('search', {'query': query, 'params': searchParams[kind]}));
 
+  static (String, String?)? _browseOf(dynamic endpoint) {
+    final b = endpoint is Map ? endpoint['browseEndpoint'] : null;
+    if (b is! Map || b['browseId'] is! String) return null;
+    return (b['browseId'] as String, b['params'] as String?);
+  }
+
+  /// Elenco completo di una pagina (discografia, playlist dei brani…),
+  /// seguendo le pagine successive fino a [maxPages].
+  Future<List<YtItem>> browseAll(String browseId, {String? params, int maxPages = 20}) async {
+    final out = <YtItem>[];
+    final seen = <String>{};
+    void add(List<YtItem> items) {
+      for (final i in items) {
+        if (seen.add('${i.videoId}|${i.browseId}|${i.title}')) out.add(i);
+      }
+    }
+    var d = await browse(browseId, extra: {if (params != null) 'params': params});
+    for (var page = 0; page < maxPages; page++) {
+      add(_flatItems(d));
+      final token = _find(d, 'continuationCommand')?['token'] as String? ??
+          _find(d, 'nextContinuationData')?['continuation'] as String?;
+      if (token == null) break;
+      d = await _post('browse', {'continuation': token});
+    }
+    return out;
+  }
+
   /// Cerca il canale di un artista per nome (quando l'id del plugin non è un UC…).
   Future<String?> findArtistChannel(String name) async {
     final d = await _post('search', {'query': name, 'params': 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D'});
@@ -265,14 +295,20 @@ class YtMusicClient {
     _walk(d, (m) {
       final car = m['musicCarouselShelfRenderer'];
       if (car is Map) {
-        final title = _text(car['header']?['musicCarouselShelfBasicHeaderRenderer']?['title']) ?? '';
+        final h = car['header']?['musicCarouselShelfBasicHeaderRenderer'];
+        final title = _text(h?['title']) ?? '';
         final items = _itemsOf(car['contents']);
-        if (items.isNotEmpty) out.add(YtSection(title, items));
+        final more = _browseOf(h?['title']?['runs']?[0]?['navigationEndpoint']) ??
+            _browseOf(h?['moreContentButton']?['buttonRenderer']?['navigationEndpoint']);
+        if (items.isNotEmpty) out.add(YtSection(title, items, moreBrowseId: more?.$1, moreParams: more?.$2));
       }
       final shelf = m['musicShelfRenderer'];
       if (shelf is Map) {
         final items = _itemsOf(shelf['contents']);
-        if (items.isNotEmpty) out.add(YtSection(_text(shelf['title']) ?? '', items));
+        final more = _browseOf(shelf['title']?['runs']?[0]?['navigationEndpoint']) ?? _browseOf(shelf['bottomEndpoint']);
+        if (items.isNotEmpty) {
+          out.add(YtSection(_text(shelf['title']) ?? '', items, moreBrowseId: more?.$1, moreParams: more?.$2));
+        }
       }
     }, stopAt: const {'musicCarouselShelfRenderer', 'musicShelfRenderer'});
     return out;

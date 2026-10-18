@@ -180,10 +180,13 @@ class TvRow extends StatelessWidget {
     this.height = 250,
     this.subtitle,
     this.trailing,
+    this.onTitleTap,
   });
 
   final String title;
   final String? subtitle;
+  /// Se c'è, il titolo diventa un pulsante "Titolo ›" che apre l'elenco completo.
+  final VoidCallback? onTitleTap;
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
   final double height;
@@ -202,10 +205,29 @@ class TvRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Flexible(
-                  child: Text(title,
-                      style: TvText.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                  child: onTitleTap == null
+                      ? Text(title,
+                          style: TvText.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis)
+                      : TvFocusable(
+                          onTap: onTitleTap!,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Flexible(
+                                child: Text(title,
+                                    style: TvText.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                              const SizedBox(width: 6),
+                              const Text('Tutti', style: TextStyle(color: TvColors.accent, fontSize: 18, fontFamily: 'Gilroy')),
+                              const Icon(Icons.chevron_right_rounded, color: TvColors.accent, size: 30),
+                            ]),
+                          ),
+                        ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(width: 12),

@@ -127,11 +127,12 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     } catch (_) {}
   }
 
-  Widget _ytRow(String title, List<YtItem> items) {
+  Widget _ytRow(String title, List<YtItem> items, {YtSection? section}) {
     if (items.isEmpty) return const SizedBox.shrink();
     return TvRow(
       title: title,
       subtitle: 'YouTube Music',
+      onTitleTap: section == null ? null : ytSectionMore(context, section),
       itemCount: items.length,
       itemBuilder: (_, i) {
         final it = items[i];
@@ -376,7 +377,7 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
                         ),
                       _jfRow('Aggiunti di recente', _jfRecent),
                       _ytRow('Ascoltati di recente su YouTube', _ytHistory),
-                      for (final sec in _ytHome) _ytRow(sec.title, sec.items),
+                      for (final sec in _ytHome) _ytRow(sec.title, sec.items, section: sec),
                       _recentRow(),
                       _jfRow('Scelti per te', _jfRandom),
                       _chartsRow(),
