@@ -1,4 +1,5 @@
 import 'package:Bloomee/utils/url_launcher.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -121,21 +122,21 @@ class About extends StatelessWidget {
                       Rect.fromLTWH(0, 0, bounds.width, bounds.height),
                     ),
                     // Use Wrap so title + flower can wrap on narrow widths.
-                    child: const Wrap(
+                    child: Wrap(
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 6,
                       children: [
                         Text(
-                          'BloomeeTunes',
-                          style: TextStyle(
+                          TvMode.isTv ? 'Bloomee TV' : 'BloomeeTunes',
+                          style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'Gilroy',
                           ),
                         ),
                         // Small animated flower
-                        GentleRotatingFlower(size: 28),
+                        const GentleRotatingFlower(size: 28),
                       ],
                     ),
                   ),
@@ -143,7 +144,10 @@ class About extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                l10n.aboutCraftingSubtitle,
+                TvMode.isTv
+                    ? 'Fork di BloomeeTunes per Android TV, di Fabio D\'Alessandro.\nBloomee originale è di:'
+                    : l10n.aboutCraftingSubtitle,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                     fontSize: 16,
                     color: kSecondaryTextColor,
@@ -328,7 +332,9 @@ class About extends StatelessWidget {
             InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: () {
-                openLink(Uri.parse("https://hemantkarya.github.io/BloomeeTunes/"));
+                openLink(Uri.parse(TvMode.isTv
+                    ? "https://github.com/fabiodalez-dev/BloomeeTV"
+                    : "https://hemantkarya.github.io/BloomeeTunes/"));
               },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
