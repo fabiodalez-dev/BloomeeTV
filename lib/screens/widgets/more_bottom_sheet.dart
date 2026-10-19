@@ -6,7 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:Bloomee/blocs/add_to_playlist/cubit/add_to_playlist_cubit.dart';
 import 'package:Bloomee/blocs/downloader/cubit/downloader_cubit.dart';

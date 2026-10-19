@@ -14,7 +14,6 @@ import 'package:Bloomee/services/meta_resolver/cross_plugin_resolver.dart';
 import 'package:Bloomee/services/plugin/plugin_service.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 part 'lastdotfm_state.dart';
 

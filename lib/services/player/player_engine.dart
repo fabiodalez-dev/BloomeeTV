@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:media_kit/media_kit.dart';
@@ -82,6 +82,12 @@ class PlayerEngine {
   late final BehaviorSubject<Player> _activePlayerSubject;
 
   Duration crossfadeDuration = Duration.zero;
+  bool sleepBoundaryActive = false;
+  Future<void> setSleepBoundaryActive(bool active) async {
+    if (sleepBoundaryActive == active) return;
+    sleepBoundaryActive = active;
+    await setLoopMode(_loopMode);
+  }
 
   final VolumeFader _oldPlayerFader = VolumeFader();
   final VolumeFader _newPlayerFader = VolumeFader();
@@ -226,7 +232,10 @@ class PlayerEngine {
   }
 
   void _checkCrossfadeTrigger(Duration pos) {
-    if (_disposed || !_hasMedia || crossfadeDuration <= Duration.zero) return;
+    if (_disposed ||
+        !_hasMedia ||
+        sleepBoundaryActive ||
+        crossfadeDuration <= Duration.zero) return;
     if (_crossfadeTriggered || _isTransitioning || _loopMode == LoopMode.one) {
       return;
     }
@@ -259,7 +268,9 @@ class PlayerEngine {
   }
 
   void _handleCompletion() {
-    if (_disposed || !_hasMedia || _loopMode == LoopMode.one) return;
+    if (_disposed ||
+        !_hasMedia ||
+        (_loopMode == LoopMode.one && !sleepBoundaryActive)) return;
     _stateSubject.add(EngineState.completed);
     _completionController.add(null);
   }
@@ -598,8 +609,9 @@ class PlayerEngine {
   Future<void> setLoopMode(LoopMode mode) async {
     if (_disposed) return;
     _loopMode = mode;
-    final mpvMode =
-        mode == LoopMode.one ? PlaylistMode.single : PlaylistMode.none;
+    final mpvMode = (mode == LoopMode.one && !sleepBoundaryActive)
+        ? PlaylistMode.single
+        : PlaylistMode.none;
     await Future.wait(
         [_playerA.setPlaylistMode(mpvMode), _playerB.setPlaylistMode(mpvMode)]);
   }
@@ -659,6 +671,40 @@ class PlayerEngine {
 
   List<EqualizerBand> get equalizerBands => List.unmodifiable(_eqBands);
   bool get equalizerEnabled => _eqEnabled;
+  bool loudnessEnabled = false;
+  Future<List<String>> loudnessModes() async {
+    final modes = <String>[];
+    for (final player in [_playerA, _playerB]) {
+      final native = player.platform;
+      if (native is! NativePlayer)
+        throw UnsupportedError('ReplayGain non disponibile');
+      modes.add(await native.getProperty('replaygain'));
+    }
+    return modes;
+  }
+
+  Future<void> setLoudnessEnabled(bool enabled) async {
+    final previous = loudnessEnabled;
+    try {
+      for (final player in [_playerA, _playerB]) {
+        final native = player.platform;
+        if (native is! NativePlayer)
+          throw UnsupportedError('ReplayGain non disponibile');
+        await native.setProperty('replaygain-clip', 'no');
+        await native.setProperty('replaygain-fallback', '0');
+        await native.setProperty('replaygain-preamp', '-6');
+        await native.setProperty('replaygain', enabled ? 'track' : 'no');
+      }
+      loudnessEnabled = enabled;
+    } catch (_) {
+      for (final player in [_playerA, _playerB]) {
+        final native = player.platform;
+        if (native is NativePlayer)
+          await native.setProperty('replaygain', previous ? 'track' : 'no');
+      }
+      rethrow;
+    }
+  }
 
   Future<void> setEqualizerEnabled(bool enabled) async {
     _eqEnabled = enabled;

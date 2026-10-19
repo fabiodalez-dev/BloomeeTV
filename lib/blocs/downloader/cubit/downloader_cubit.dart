@@ -1,3 +1,6 @@
+import 'package:Bloomee/tv/services/tv_downloads.dart';
+import 'package:Bloomee/services/db/db_provider.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
@@ -35,6 +38,8 @@ class DownloaderCubit extends Cubit<DownloaderState> {
   Timer? _libraryRefreshDebounce;
   StreamSubscription<DownloadManagerEvent>? _downloadSubscription;
   List<Track> _downloadedSongs = [];
+  final Set<Future<void>> _persisting = {};
+  Future<void>? _preparingSwitch;
   final Set<String> _persistingTaskIds = <String>{};
   bool _restoredSnapshots = false;
   Future<void>? _activeLoadFuture;
@@ -102,6 +107,12 @@ class DownloaderCubit extends Cubit<DownloaderState> {
   }
 
   Future<Directory> _getDownloadDirectory() async {
+    if (TvMode.isTv) {
+      final directory =
+          Directory(path.join(DBProvider.appSuppDir, 'downloads'));
+      await directory.create(recursive: true);
+      return directory;
+    }
     if (Platform.isAndroid || Platform.isIOS) {
       final directory = (await getDownloadsDirectory()) ??
           await getApplicationDocumentsDirectory();
@@ -182,8 +193,12 @@ class DownloaderCubit extends Cubit<DownloaderState> {
     final tempDirectory = await getTemporaryDirectory();
     await _downloadService.initialize(
       pluginManager: _pluginService.manager,
-      stateDir: path.join(supportDirectory.path, 'download_manager'),
-      tempDir: path.join(tempDirectory.path, 'bloomee_downloads'),
+      stateDir: path.join(
+          TvMode.isTv ? DBProvider.appSuppDir : supportDirectory.path,
+          'download_manager'),
+      tempDir: path.join(
+          TvMode.isTv ? DBProvider.appSuppDir : tempDirectory.path,
+          'bloomee_downloads'),
     );
 
     _downloadSubscription ??= _downloadService.events.listen(
@@ -219,14 +234,17 @@ class DownloaderCubit extends Cubit<DownloaderState> {
         _upsertSnapshot(snapshot);
         if (snapshot.state == DownloadTaskState.failed) {
           SnackbarService.showMessage(
-            snapshot.lastError ?? 'Download non riuscito: ${snapshot.track.title}',
+            snapshot.lastError ??
+                'Download non riuscito: ${snapshot.track.title}',
           );
         }
       },
       taskCompletedPendingAck: (value) {
         final snapshot = value.field0;
         _upsertSnapshot(snapshot);
-        unawaited(_persistCompletedSnapshot(snapshot));
+        final future = _persistCompletedSnapshot(snapshot);
+        _persisting.add(future);
+        unawaited(future.whenComplete(() => _persisting.remove(future)));
       },
       taskRemoved: (value) {
         _activeDownloads.removeWhere(
@@ -382,6 +400,14 @@ class DownloaderCubit extends Cubit<DownloaderState> {
 
   /// The main public method to initiate a new download.
   Future<void> downloadSong(Track song, {bool showSnackbar = true}) async {
+    if (TvMode.isTv) {
+      final saved = await TvDownloads.save(song,
+          directory: _getDownloadDirectory, register: registerExternalDownload);
+      if (!saved && showSnackbar)
+        SnackbarService.showMessage(
+            'Download non riuscito: apri Centro TV → Operazioni');
+      return;
+    }
     try {
       await _ensureDownloadServiceReady();
     } catch (error, stackTrace) {
@@ -392,13 +418,15 @@ class DownloaderCubit extends Cubit<DownloaderState> {
         stackTrace: stackTrace,
       );
       if (showSnackbar) {
-        SnackbarService.showMessage('Errore: servizio di download non disponibile.');
+        SnackbarService.showMessage(
+            'Errore: servizio di download non disponibile.');
       }
       return;
     }
 
     if (connectivityCubit.state != ConnectivityState.connected) {
-      if (showSnackbar) SnackbarService.showMessage("Nessuna connessione a internet.");
+      if (showSnackbar)
+        SnackbarService.showMessage("Nessuna connessione a internet.");
       return;
     }
 
@@ -475,8 +503,32 @@ class DownloaderCubit extends Cubit<DownloaderState> {
     await _downloadService.cancel(taskId);
   }
 
+  Future<void> prepareProfileSwitch() => _preparingSwitch ??= () async {
+        if (_serviceInitialization != null) {
+          try {
+            await _serviceInitialization;
+          } catch (_) {}
+        }
+        if (_downloadService.isInitialized) {
+          for (final snapshot in await _downloadService.getSnapshots()) {
+            if ([
+              DownloadTaskState.queued,
+              DownloadTaskState.resolving,
+              DownloadTaskState.downloading,
+              DownloadTaskState.retrying
+            ].contains(snapshot.state))
+              await _downloadService.pause(snapshot.taskId);
+          }
+        }
+        await _downloadSubscription?.cancel();
+        _downloadSubscription = null;
+        await Future.wait(_persisting.toList());
+        await _activeLoadFuture;
+      }();
+
   @override
   Future<void> close() async {
+    await prepareProfileSwitch();
     _libraryRefreshDebounce?.cancel();
     await _librarySubscription?.cancel();
     await _downloadSubscription?.cancel();

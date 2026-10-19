@@ -56,6 +56,13 @@ class PlayerErrorHandler {
   final RetryConfig _retryConfig = const RetryConfig();
 
   Timer? _reconnectionTimer;
+  int _retryGeneration = 0;
+
+  void cancelPendingRetry() {
+    _retryGeneration++;
+    _reconnectionTimer?.cancel();
+    _reconnectionTimer = null;
+  }
 
   // --- Deterministic State Machine Tracking ---
   int _currentAttemptSequence = 0;
@@ -74,6 +81,7 @@ class PlayerErrorHandler {
   /// Called strictly before the engine commands a play/open.
   /// Generates a new sequence ID to deterministically isolate error bursts.
   void registerAttempt(String trackId) {
+    cancelPendingRetry();
     _currentAttemptSequence++;
 
     if (_currentTrackId != trackId) {
@@ -159,8 +167,13 @@ class PlayerErrorHandler {
           '${_getUserFriendlyErrorMessage(type, message)} (Retry $_currentTrackRetries/${_retryConfig.maxRetriesPerTrack})',
           duration: const Duration(seconds: 3));
 
-      _reconnectionTimer?.cancel();
+      cancelPendingRetry();
+      final generation = _retryGeneration;
+      final sequence = _currentAttemptSequence;
       _reconnectionTimer = Timer(delay, () {
+        if (generation != _retryGeneration ||
+            sequence != _currentAttemptSequence ||
+            _currentTrackId != track.id) return;
         dev.log(
             'Retrying playback for ${track.title} (attempt $_currentTrackRetries)',
             name: 'PlayerErrorHandler');
@@ -221,6 +234,7 @@ class PlayerErrorHandler {
   }
 
   void markTrackSuccess(String mediaId) {
+    cancelPendingRetry();
     if (_currentTrackId == mediaId) {
       _currentTrackHadPlay = true;
       _currentTrackRetries = 0;
@@ -229,6 +243,7 @@ class PlayerErrorHandler {
   }
 
   void resetCircuitBreaker() {
+    cancelPendingRetry();
     _currentTrackId = null;
     _currentTrackRetries = 0;
     _consecutiveTrackFailures = 0;
@@ -239,7 +254,7 @@ class PlayerErrorHandler {
   void clearError() => lastError.add(null);
 
   void dispose() {
-    _reconnectionTimer?.cancel();
+    cancelPendingRetry();
     lastError.close();
   }
 }

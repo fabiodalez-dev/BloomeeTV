@@ -1,17 +1,30 @@
+import 'tv_http.dart';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
 /// Esito di una richiesta "Scarica questo album".
-enum LidarrRequestStatus { requested, alreadyPresent, alreadyMonitored, notFound, error }
+enum LidarrRequestStatus {
+  requested,
+  alreadyPresent,
+  alreadyMonitored,
+  notFound,
+  error
+}
 
 class LidarrRequestResult {
-  const LidarrRequestResult(this.status, {this.albumTitle, this.artistName, this.year, this.message});
+  const LidarrRequestResult(this.status,
+      {this.albumTitle,
+      this.artistName,
+      this.year,
+      this.message,
+      this.albumId});
   final LidarrRequestStatus status;
   final String? albumTitle;
   final String? artistName;
   final int? year;
   final String? message;
+  final String? albumId;
 }
 
 /// Client minimale per l'API v1 di Lidarr.
@@ -21,22 +34,27 @@ class LidarrRequestResult {
 /// lancia la ricerca. Lidarr poi lo scarica e lo organizza in
 /// Artista/Album (Anno), dove Jellyfin lo trova.
 class LidarrClient {
-  LidarrClient({required String baseUrl, required this.apiKey, http.Client? client})
+  LidarrClient(
+      {required String baseUrl, required this.apiKey, http.Client? client})
       : baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), ''),
-        _http = client ?? http.Client();
+        _http = client ?? tvHttpClient;
 
   final String baseUrl;
   final String apiKey;
   final http.Client _http;
 
-  Map<String, String> get _headers => {'X-Api-Key': apiKey, 'Content-Type': 'application/json'};
+  Map<String, String> get _headers =>
+      {'X-Api-Key': apiKey, 'Content-Type': 'application/json'};
 
   Uri _u(String path, [Map<String, String>? q]) =>
       Uri.parse('$baseUrl/api/v1$path').replace(queryParameters: q);
 
   Future<dynamic> _get(String path, [Map<String, String>? q]) async {
-    final r = await _http.get(_u(path, q), headers: _headers).timeout(const Duration(seconds: 30));
-    if (r.statusCode >= 300) throw Exception('Lidarr $path: HTTP ${r.statusCode}');
+    final r = await _http
+        .get(_u(path, q), headers: _headers)
+        .timeout(const Duration(seconds: 30));
+    if (r.statusCode >= 300)
+      throw Exception('Lidarr $path: HTTP ${r.statusCode}');
     return jsonDecode(utf8.decode(r.bodyBytes));
   }
 
@@ -44,11 +62,37 @@ class LidarrClient {
     final req = http.Request(method, _u(path))
       ..headers.addAll(_headers)
       ..body = jsonEncode(body);
-    final r = await http.Response.fromStream(await _http.send(req).timeout(const Duration(seconds: 60)));
+    final r = await http.Response.fromStream(
+            await _http.send(req).timeout(const Duration(seconds: 60)))
+        .timeout(const Duration(seconds: 60));
     if (r.statusCode >= 300) {
-      throw Exception('Lidarr $path: HTTP ${r.statusCode} ${r.body.length > 200 ? r.body.substring(0, 200) : r.body}');
+      throw Exception(
+          'Lidarr $path: HTTP ${r.statusCode} ${r.body.length > 200 ? r.body.substring(0, 200) : r.body}');
     }
     return r.body.isEmpty ? null : jsonDecode(utf8.decode(r.bodyBytes));
+  }
+
+  Future<String> albumStatus(String artist, String album) async {
+    final artists = await _get('/artist') as List;
+    final hit = artists
+        .cast<Map>()
+        .where((a) => _norm(a['artistName']?.toString() ?? '') == _norm(artist))
+        .firstOrNull;
+    if (hit == null) return 'richiesto';
+    final albums = await _get('/album', {'artistId': '${hit['id']}'}) as List;
+    final found = albums
+        .cast<Map>()
+        .where((a) => _norm(a['title']?.toString() ?? '') == _norm(album))
+        .firstOrNull;
+    final stats = found?['statistics'] as Map?;
+    if (stats != null &&
+        (stats['trackCount'] ?? 0) > 0 &&
+        stats['trackCount'] == stats['trackFileCount']) return 'pronto';
+    final queue = await _get('/queue', {'pageSize': '200'}) as Map;
+    if ((queue['records'] as List? ?? [])
+        .any((r) => r['album']?['id'] == found?['id']))
+      return 'trasferimento/importazione';
+    return 'richiesto';
   }
 
   /// Verifica raggiungibilità e chiave.
@@ -60,8 +104,9 @@ class LidarrClient {
   static String _norm(String s) => s
       .toLowerCase()
       .replaceAll(RegExp(r'\(.*?\)|\[.*?\]'), ' ')
-      .replaceAll(RegExp(r'(remaster(ed)?|deluxe|edition|expanded|anniversary)'), ' ')
-      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .replaceAll(
+          RegExp(r'(remaster(ed)?|deluxe|edition|expanded|anniversary)'), ' ')
+      .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
       .trim();
 
   /// Punteggio di somiglianza 0..1 tra due stringhe normalizzate (token in comune).
@@ -80,6 +125,7 @@ class LidarrClient {
     for (final raw in results) {
       final r = Map<String, dynamic>.from(raw as Map);
       final a = (r['artist'] as Map?)?['artistName']?.toString() ?? '';
+      if (_norm(artist).length <= 3 && _norm(a) != _norm(artist)) continue;
       final sa = _score(a, artist);
       if (sa < 0.5) continue;
       final st = _score(r['title']?.toString() ?? '', album);
@@ -87,7 +133,11 @@ class LidarrClient {
       // "non trovato" che scaricare l'album sbagliato.
       if (st < 0.6) continue;
       final s = sa * 0.4 + st * 0.6;
-      if (s > bestScore) {
+      if (s > bestScore ||
+          (s == bestScore &&
+              (r['releaseDate']?.toString() ?? '9999')
+                      .compareTo(best?['releaseDate']?.toString() ?? '9999') <
+                  0)) {
         bestScore = s;
         best = r;
       }
@@ -107,44 +157,69 @@ class LidarrClient {
   }
 
   /// Anteprima per la conferma: trova l'album senza aggiungere nulla.
-  Future<LidarrRequestResult> findAlbum({required String artist, required String album}) async {
+  Future<LidarrRequestResult> findAlbum(
+      {required String artist, required String album}) async {
     try {
-      final results = await _get('/album/lookup', {'term': '$artist $album'}) as List;
+      final results =
+          await _get('/album/lookup', {'term': '$artist $album'}) as List;
       final hit = _best(results, artist, album);
-      if (hit == null) return const LidarrRequestResult(LidarrRequestStatus.notFound);
+      if (hit == null)
+        return const LidarrRequestResult(LidarrRequestStatus.notFound);
       return LidarrRequestResult(
         LidarrRequestStatus.requested,
+        albumId: hit['foreignAlbumId']?.toString(),
         albumTitle: hit['title']?.toString(),
         artistName: (hit['artist'] as Map)['artistName']?.toString(),
-        year: int.tryParse((hit['releaseDate']?.toString() ?? '').padRight(4).substring(0, 4).trim()),
+        year: int.tryParse((hit['releaseDate']?.toString() ?? '')
+            .padRight(4)
+            .substring(0, 4)
+            .trim()),
       );
     } catch (e) {
-      return LidarrRequestResult(LidarrRequestStatus.error, message: e.toString());
+      return LidarrRequestResult(LidarrRequestStatus.error,
+          message: e.toString());
     }
   }
 
-  Future<LidarrRequestResult> requestAlbum({required String artist, required String album}) async {
+  Future<LidarrRequestResult> requestAlbum(
+      {required String artist,
+      required String album,
+      String? expectedAlbumId}) async {
     try {
-      final results = await _get('/album/lookup', {'term': '$artist $album'}) as List;
+      final results =
+          await _get('/album/lookup', {'term': '$artist $album'}) as List;
       final hit = _best(results, artist, album);
-      if (hit == null) return const LidarrRequestResult(LidarrRequestStatus.notFound);
+      if (hit == null)
+        return const LidarrRequestResult(LidarrRequestStatus.notFound);
+      if (expectedAlbumId != null &&
+          hit['foreignAlbumId']?.toString() != expectedAlbumId)
+        return const LidarrRequestResult(LidarrRequestStatus.error,
+            message: 'Il candidato è cambiato: ripeti la conferma');
       final title = hit['title']?.toString();
       final artistName = (hit['artist'] as Map)['artistName']?.toString();
-      final year = int.tryParse((hit['releaseDate']?.toString() ?? '').padRight(4).substring(0, 4).trim());
+      final year = int.tryParse((hit['releaseDate']?.toString() ?? '')
+          .padRight(4)
+          .substring(0, 4)
+          .trim());
 
       final roots = await _get('/rootfolder') as List;
       final qps = await _get('/qualityprofile') as List;
       final mps = await _get('/metadataprofile') as List;
       final root = roots.isNotEmpty ? roots.first['path'] : null;
       if (root == null || qps.isEmpty || mps.isEmpty) {
-        return const LidarrRequestResult(LidarrRequestStatus.error, message: 'Lidarr senza cartella o profili');
+        return const LidarrRequestResult(LidarrRequestStatus.error,
+            message: 'Lidarr senza cartella o profili');
       }
-      final mp = mps.firstWhere((m) => m['name'] != 'None', orElse: () => mps.first);
+      final mp =
+          mps.firstWhere((m) => m['name'] != 'None', orElse: () => mps.first);
 
       // Artista: se manca lo aggiungo senza monitorare la discografia.
       final foreignArtistId = (hit['artist'] as Map)['foreignArtistId'];
       final artists = await _get('/artist') as List;
-      var existingArtist = artists.cast<Map>().where((a) => a['foreignArtistId'] == foreignArtistId).firstOrNull;
+      var existingArtist = artists
+          .cast<Map>()
+          .where((a) => a['foreignArtistId'] == foreignArtistId)
+          .firstOrNull;
       existingArtist ??= await _send('POST', '/artist', {
         ...Map<String, dynamic>.from(hit['artist'] as Map),
         'rootFolderPath': root,
@@ -158,8 +233,13 @@ class LidarrClient {
       // Album: dopo l'aggiunta dell'artista Lidarr lo conosce già; lo monitoro e lo cerco.
       Map? existing;
       for (var i = 0; i < 10 && existing == null; i++) {
-        final albums = await _get('/album', {'artistId': '${existingArtist['id']}'}) as List;
-        existing = albums.cast<Map>().where((a) => a['foreignAlbumId'] == hit['foreignAlbumId']).firstOrNull;
+        final albums =
+            await _get('/album', {'artistId': '${existingArtist['id']}'})
+                as List;
+        existing = albums
+            .cast<Map>()
+            .where((a) => a['foreignAlbumId'] == hit['foreignAlbumId'])
+            .firstOrNull;
         if (existing == null) await Future.delayed(const Duration(seconds: 2));
       }
       if (existing == null) {
@@ -169,11 +249,14 @@ class LidarrClient {
           'monitored': true,
           'addOptions': {'searchForNewAlbum': true},
         }) as Map;
-        return LidarrRequestResult(LidarrRequestStatus.requested, albumTitle: title, artistName: artistName, year: year);
+        return LidarrRequestResult(LidarrRequestStatus.requested,
+            albumTitle: title, artistName: artistName, year: year);
       }
       final stats = existing['statistics'] as Map?;
-      if ((stats?['trackFileCount'] ?? 0) > 0 && stats?['trackFileCount'] == stats?['trackCount']) {
-        return LidarrRequestResult(LidarrRequestStatus.alreadyPresent, albumTitle: title, artistName: artistName, year: year);
+      if ((stats?['trackFileCount'] ?? 0) > 0 &&
+          stats?['trackFileCount'] == stats?['trackCount']) {
+        return LidarrRequestResult(LidarrRequestStatus.alreadyPresent,
+            albumTitle: title, artistName: artistName, year: year);
       }
       final wasMonitored = existing['monitored'] == true;
       // Un artista appena aggiunto viene aggiornato da Lidarr in background
@@ -181,18 +264,29 @@ class LidarrClient {
       // lo annulla. Aspetto la fine (max ~2 min), poi monitoro e verifico.
       await _waitArtistRefresh();
       for (var i = 0; i < 3; i++) {
-        await _send('PUT', '/album/monitor', {'albumIds': [existing['id']], 'monitored': true});
+        await _send('PUT', '/album/monitor', {
+          'albumIds': [existing['id']],
+          'monitored': true
+        });
         final check = await _get('/album/${existing['id']}') as Map;
         if (check['monitored'] == true) break;
         await Future.delayed(const Duration(seconds: 3));
       }
-      await _send('POST', '/command', {'name': 'AlbumSearch', 'albumIds': [existing['id']]});
+      await _send('POST', '/command', {
+        'name': 'AlbumSearch',
+        'albumIds': [existing['id']]
+      });
       return LidarrRequestResult(
-        wasMonitored ? LidarrRequestStatus.alreadyMonitored : LidarrRequestStatus.requested,
-        albumTitle: title, artistName: artistName, year: year,
+        wasMonitored
+            ? LidarrRequestStatus.alreadyMonitored
+            : LidarrRequestStatus.requested,
+        albumTitle: title,
+        artistName: artistName,
+        year: year,
       );
     } catch (e) {
-      return LidarrRequestResult(LidarrRequestStatus.error, message: e.toString());
+      return LidarrRequestResult(LidarrRequestStatus.error,
+          message: e.toString());
     }
   }
 }

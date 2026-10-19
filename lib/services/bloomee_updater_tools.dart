@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
@@ -7,6 +9,19 @@ import 'package:Bloomee/services/db/dao/settings_dao.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:Bloomee/tv/tv_mode.dart';
+
+Future<String> currentBuildNumber(PackageInfo packageInfo) async {
+  if (Platform.isAndroid) {
+    try {
+      final base = await const MethodChannel('bloomee_tv/device')
+          .invokeMethod<String>('baseBuild');
+      if (base != null && int.tryParse(base) != null && int.parse(base) > 0)
+        return base;
+    } on PlatformException {
+    } on MissingPluginException {}
+  }
+  return packageInfo.buildNumber;
+}
 
 bool isUpdateAvailable(
     String currentVer, String currentBuild, String newVer, String newBuild,
@@ -34,11 +49,11 @@ bool isUpdateAvailable(
     if (neu < cur) return false;
   }
 
-  if (checkBuild && !Platform.isLinux) {
+  if (checkBuild) {
     int parseBuild(String b) {
       try {
         final parsed = int.parse(b);
-        return parsed > 1000 ? parsed % 1000 : parsed;
+        return parsed;
       } catch (_) {
         final m = RegExp(r'(\d+)').firstMatch(b);
         return m != null ? int.parse(m.group(1)!) : 0;
@@ -78,6 +93,7 @@ Future<Map<String, dynamic>> sourceforgeUpdate(
     'referer': 'https://sourceforge.net',
   };
   PackageInfo packageInfo = await PackageInfo.fromPlatform();
+  final buildNumber = await currentBuildNumber(packageInfo);
   try {
     final response =
         await http.get(Uri.parse(url), headers: headers).timeout(timeout);
@@ -145,12 +161,10 @@ Future<Map<String, dynamic>> sourceforgeUpdate(
         'newBuild': build,
         'download_url': releaseUrl,
         'currVer': packageInfo.version,
-        'currBuild': (int.tryParse(packageInfo.buildNumber) ?? 0) > 1000
-            ? ((int.tryParse(packageInfo.buildNumber) ?? 0) % 1000).toString()
-            : packageInfo.buildNumber,
+        'currBuild': await currentBuildNumber(packageInfo),
         'results': isUpdateAvailable(
           packageInfo.version,
-          packageInfo.buildNumber,
+          buildNumber,
           version.isNotEmpty ? version : '0.0.0',
           build.isNotEmpty ? build : '0',
           checkBuild: platform == 'linux' ? false : true,
@@ -170,6 +184,7 @@ Future<Map<String, dynamic>> githubUpdate(
     String repo = 'HemantKArya/BloomeeTunes'}) async {
   final url = 'https://api.github.com/repos/$repo/releases/latest';
   PackageInfo packageInfo = await PackageInfo.fromPlatform();
+  final buildNumber = await currentBuildNumber(packageInfo);
   try {
     final response = await http.get(Uri.parse(url)).timeout(timeout);
     log("GitHub response status code: ${response.statusCode}",
@@ -184,7 +199,10 @@ Future<Map<String, dynamic>> githubUpdate(
       final buildPart = tagParts.length > 1 ? tagParts[1] : '';
 
       // Attempt to extract download url from assets if possible
-      String? download = extractUpUrl(data);
+      final abis = Platform.isAndroid
+          ? (await DeviceInfoPlugin().androidInfo).supportedAbis
+          : <String>[];
+      String? download = extractUpUrl(data, abis: abis);
       download ??= data['html_url'] ?? '';
 
       return {
@@ -193,12 +211,10 @@ Future<Map<String, dynamic>> githubUpdate(
         'newBuild': buildPart,
         'download_url': download,
         'currVer': packageInfo.version,
-        'currBuild': (int.tryParse(packageInfo.buildNumber) ?? 0) > 1000
-            ? ((int.tryParse(packageInfo.buildNumber) ?? 0) % 1000).toString()
-            : packageInfo.buildNumber,
+        'currBuild': await currentBuildNumber(packageInfo),
         'results': isUpdateAvailable(
           packageInfo.version,
-          packageInfo.buildNumber,
+          buildNumber,
           versionPart.isNotEmpty ? versionPart : '0.0.0',
           buildPart.isNotEmpty ? buildPart : '0',
           checkBuild: true,
@@ -225,8 +241,10 @@ Future<Map<String, dynamic>> getAppUpdates() async {
     final packageInfo = await PackageInfo.fromPlatform();
     return {
       'results': false,
+      'error':
+          'Verifica aggiornamenti non riuscita. Riprova quando la rete è disponibile.',
       'currVer': packageInfo.version,
-      'currBuild': packageInfo.buildNumber,
+      'currBuild': await currentBuildNumber(packageInfo),
       'newVer': packageInfo.version,
       'newBuild': packageInfo.buildNumber,
     };
@@ -248,7 +266,7 @@ Future<Map<String, dynamic>> getAppUpdates() async {
           'results': false,
           'error': 'Failed to check remote releases',
           'currVer': packageInfo.version,
-          'currBuild': packageInfo.buildNumber,
+          'currBuild': await currentBuildNumber(packageInfo),
           'source': 'none',
         };
       } catch (e3) {
@@ -313,22 +331,48 @@ Future<String?> fetchChangelog(
 /// Backwards-compatible wrapper for existing callers
 Future<Map<String, dynamic>> getLatestVersion() async => await getAppUpdates();
 
-String? extractUpUrl(Map<String, dynamic> data) {
-  // List<String> urls = [];
-
-  for (var element in (data["assets"] as List)) {
-    // urls.add(element["browser_download_url"]);
-    if (element["browser_download_url"].toString().contains("windows")) {
-      if (Platform.isWindows) {
-        return element["browser_download_url"].toString();
-      }
-    } else if (element["browser_download_url"].toString().contains("android")) {
-      if (Platform.isAndroid) {
-        return element["browser_download_url"].toString();
-      }
-    } else {
-      continue;
-    }
+String? extractUpUrl(Map<String, dynamic> data,
+    {String? platform, List<String> abis = const []}) {
+  final os = platform ?? Platform.operatingSystem;
+  final assets = (data['assets'] as List? ?? []).whereType<Map>().toList();
+  String name(Map asset) => (asset['name'] ??
+          Uri.tryParse('${asset['browser_download_url']}')
+              ?.pathSegments
+              .lastOrNull ??
+          '')
+      .toString()
+      .toLowerCase();
+  String? url(Map? asset) {
+    final uri = Uri.tryParse('${asset?['browser_download_url'] ?? ''}');
+    return uri?.scheme == 'https' &&
+            uri!.host.isNotEmpty &&
+            uri.userInfo.isEmpty
+        ? uri.toString()
+        : null;
   }
-  return null;
+
+  if (os == 'android') {
+    final apks = assets.where((a) => name(a).endsWith('.apk')).toList();
+    const variants = ['armeabi-v7a', 'arm64-v8a', 'x86_64', 'x86'];
+    for (final abi in abis) {
+      final match = apks
+          .where((a) =>
+              name(a).contains(abi) &&
+              !(abi == 'x86' && name(a).contains('x86_64')))
+          .firstOrNull;
+      if (match != null) return url(match);
+    }
+    return url(apks
+        .where((a) =>
+            name(a).contains('universal') ||
+            !variants.any((abi) => name(a).contains(abi)))
+        .firstOrNull);
+  }
+  return url(assets
+      .where((a) => os == 'windows'
+          ? name(a).contains('windows')
+          : os == 'linux'
+              ? name(a).contains('linux')
+              : name(a).contains('mac'))
+      .firstOrNull);
 }

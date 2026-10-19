@@ -15,6 +15,8 @@ import 'package:Bloomee/services/db/global_db.dart';
 import 'package:Bloomee/services/db/legacy/legacy_db_opener.dart'
     as legacy_opener;
 import 'package:Bloomee/services/db/legacy/legacy_global_db.dart' as legacy;
+import 'package:Bloomee/services/db/legacy/legacy_media_id_mapper.dart'
+    show stripYoutubePrefix;
 import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
 
@@ -283,6 +285,8 @@ Future<_MigrationPlan> _buildMigrationPlan(Isar legacyIsar) async {
   for (final item in mediaItems) {
     if (item.mediaID.isEmpty) continue;
     mediaByLegacyMediaId.putIfAbsent(item.mediaID, () => item);
+    mediaByLegacyMediaId.putIfAbsent(
+        stripYoutubePrefix(item.mediaID), () => item);
   }
 
   final playlistInfos =
@@ -364,7 +368,8 @@ Future<_MigrationPlan> _buildMigrationPlan(Isar legacyIsar) async {
       legacyIsar.collection<legacy.DownloadDB>().where().findAllSync();
   for (var index = 0; index < legacyDownloads.length; index++) {
     final download = legacyDownloads[index];
-    final mediaItem = mediaByLegacyMediaId[download.mediaId];
+    final mediaItem = mediaByLegacyMediaId[download.mediaId] ??
+        mediaByLegacyMediaId[stripYoutubePrefix(download.mediaId)];
     final newMediaId = mediaItem != null
         ? _buildNewMediaId(
             download.mediaId,

@@ -1,83 +1,55 @@
 import 'dart:async';
-import 'dart:developer';
-
-import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
+import 'package:Bloomee/services/player/sleep_timer.dart';
 import 'package:Bloomee/utils/ticker.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-
 part 'timer_event.dart';
 part 'timer_state.dart';
 
+/// Legacy UI is an adapter over the very same timer used by the TV player.
 class TimerBloc extends Bloc<TimerEvent, TimerState> {
-  final Ticker _ticker;
-  static const int _duration = 0;
-  final BloomeePlayerCubit bloomeePlayer;
-  StreamSubscription<int>? _tickerSubscription;
-
-  TimerBloc({required Ticker ticker, required this.bloomeePlayer})
-      : _ticker = ticker,
-        super(const TimerInitial(_duration)) {
-    on<TimerStarted>(_onTimerStarted);
-    on<_TimerTicked>(_onTimerTicked);
-    on<TimerPaused>(onTimerPaused);
-    on<TimerResumed>(onTimerResumed);
-    on<TimerReset>(onTimerReset);
-    on<TimerStopped>(onTimerStopped);
-  }
-
-  void _onTimerStarted(TimerStarted event, Emitter<TimerState> emit) {
-    emit(TimerRunInProgress(event.duration));
-    _tickerSubscription?.cancel();
-    _tickerSubscription =
-        _ticker.tick(ticks: event.duration).listen((duration) {
-      add(_TimerTicked(duration: duration));
+  final SleepTimer _timer;
+  TimerBloc({required Ticker ticker, required SleepTimer timer})
+      : _timer = timer,
+        super(const TimerInitial(0)) {
+    on<TimerStarted>((event, emit) async {
+      await _timer.start(SleepMode.duration,
+          duration: Duration(seconds: event.duration));
+      _sync();
     });
+    on<TimerPaused>((event, emit) async {
+      await _timer.pause();
+      emit(TimerRunPause(_timer.remaining.inSeconds));
+    });
+    on<TimerResumed>((event, emit) {
+      _timer.resume();
+      _sync();
+    });
+    on<TimerReset>((event, emit) async {
+      await _timer.cancel();
+      emit(const TimerInitial(0));
+    });
+    on<TimerStopped>((event, emit) async {
+      await _timer.cancel();
+      emit(const TimerRunStopped());
+    });
+    on<_TimerTicked>((event, emit) {
+      if (_timer.paused)
+        emit(TimerRunPause(event.duration));
+      else if (_timer.mode == SleepMode.duration)
+        emit(TimerRunInProgress(event.duration));
+      else if (state is TimerRunInProgress || state is TimerRunPause)
+        emit(const TimerRunComplete());
+    });
+    _timer.addListener(_sync);
   }
-
-  void onTimerPaused(TimerPaused event, Emitter<TimerState> emit) {
-    if (state is TimerRunInProgress) {
-      _tickerSubscription?.pause();
-      emit(TimerRunPause(state.duration));
-    }
-  }
-
-  void onTimerResumed(TimerResumed event, Emitter<TimerState> emit) {
-    if (state is TimerRunPause) {
-      _tickerSubscription?.resume();
-      emit(TimerRunInProgress(state.duration));
-    }
-  }
-
-  void onTimerReset(TimerReset event, Emitter<TimerState> emit) {
-    _tickerSubscription?.cancel();
-    emit(const TimerInitial(_duration));
-  }
-
-  void onTimerStopped(TimerStopped event, Emitter<TimerState> emit) {
-    _tickerSubscription?.cancel();
-    emit(const TimerRunStopped());
-  }
-
-  void _onTimerTicked(_TimerTicked event, Emitter<TimerState> emit) {
-    // emit(event.duration > 0
-    //     ? TimerRunInProgress(event.duration)
-    //     : const TimerRunComplete());
-    if (event.duration > 0) {
-      emit(TimerRunInProgress(event.duration));
-    } else {
-      emit(const TimerRunComplete());
-      try {
-        bloomeePlayer.bloomeePlayer.pause();
-      } catch (e) {
-        log(e.toString(), name: "TimerBloc");
-      }
-    }
+  void _sync() {
+    if (!isClosed) add(_TimerTicked(duration: _timer.remaining.inSeconds));
   }
 
   @override
   Future<void> close() {
-    _tickerSubscription?.cancel();
+    _timer.removeListener(_sync);
     return super.close();
   }
 }

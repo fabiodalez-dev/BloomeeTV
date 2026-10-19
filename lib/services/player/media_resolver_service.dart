@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:Bloomee/core/events/global_event_bus.dart';
 import 'package:Bloomee/core/constants/setting_keys.dart';
@@ -61,7 +62,8 @@ class MediaResolverService {
     // 1. Check for an offline/downloaded version.
     try {
       final down = await _downloadDao.getDownloadRecord(track.id);
-      if (down != null) {
+      if (down != null &&
+          await File('${down.filePath}/${down.fileName}').exists()) {
         log('Playing Offline: ${track.title}', name: 'MediaResolverService');
         return ResolvedMediaSource(
           uri: Uri.file('${down.filePath}/${down.fileName}'),
@@ -178,7 +180,7 @@ class MediaResolverService {
           );
         }
 
-        log('Resolved stream: $streamUrl', name: 'MediaResolverService');
+        log('Resolved stream for ${track.id}', name: 'MediaResolverService');
         return ResolvedMediaSource(
           uri: uri,
           isOffline: false,

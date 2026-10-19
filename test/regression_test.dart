@@ -1,105 +1,113 @@
-// Regression test stubs for migrated flows.
-// These are placeholders to be filled with real integration tests.
-//
-// Run with: flutter test test/regression_test.dart
-
+import 'dart:io';
+import 'package:Bloomee/services/db/db_provider.dart';
+import 'package:Bloomee/services/db/dao/cache_dao.dart';
+import 'package:Bloomee/services/db/dao/download_dao.dart';
+import 'package:Bloomee/services/db/dao/playlist_dao.dart';
+import 'package:Bloomee/services/db/dao/settings_dao.dart';
+import 'package:Bloomee/services/db/dao/track_dao.dart';
+import 'package:Bloomee/services/db/mappers/media_item_mapper.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'support/tracks.dart';
 
 void main() {
-  // P8-T003.1 — Search by source engine + pagination
-  group('Search by source engine', () {
-    test('TODO: search returns results from selected engine', () {
-      // Arrange: instantiate FetchSearchResultsCubit with mock repos
-      // Act: call search with query
-      // Assert: results are non-empty and from correct source
-    });
-
-    test('TODO: pagination loads next page', () {
-      // Arrange: search with initial results
-      // Act: call loadMore
-      // Assert: additional results appended
-    });
+  late Directory root;
+  late TrackDAO tracks;
+  late PlaylistDAO playlists;
+  late SettingsDAO settings;
+  setUp(() async {
+    root = await Directory.systemTemp.createTemp('bloomee-regression-');
+    await DBProvider.init(
+        appSupportPath: root.path, appDocumentsPath: root.path);
+    tracks = TrackDAO(DBProvider.db);
+    playlists = PlaylistDAO(DBProvider.db, tracks);
+    settings = SettingsDAO(DBProvider.db);
   });
-
-  // P8-T003.2 — Playlist CRUD + reorder
-  group('Playlist CRUD', () {
-    test('TODO: create playlist persists to DB', () {
-      // Arrange: open in-memory Isar
-      // Act: PlaylistDAO.addPlaylist
-      // Assert: getPlaylist returns it
-    });
-
-    test('TODO: add media item to playlist', () {
-      // Arrange: create playlist
-      // Act: PlaylistDAO.addMediaItem
-      // Assert: getPlaylistItemsByName returns item
-    });
-
-    test('TODO: remove media item from playlist', () {
-      // Arrange: create playlist + add item
-      // Act: PlaylistDAO.removeMediaItemFromPlaylist
-      // Assert: getPlaylistItemsByName is empty
-    });
-
-    test('TODO: reorder items in playlist', () {
-      // Arrange: create playlist + add 3 items
-      // Act: PlaylistDAO.updatePltItemsRankByName with new order
-      // Assert: getPlaylistItemsRankByName matches new order
-    });
-
-    test('TODO: delete playlist purges unassociated media', () {
-      // Arrange: create playlist + add item only in that playlist
-      // Act: PlaylistDAO.removePlaylist
-      // Assert: media item no longer in DB
-    });
+  tearDown(() async {
+    final db = await DBProvider.db;
+    if (db.isOpen) await db.close();
+    await root.delete(recursive: true);
   });
-
-  // P8-T003.3 — Download + play offline
-  group('Download and offline play', () {
-    test('TODO: download entry persists via DownloadDAO', () {
-      // Arrange: open in-memory Isar
-      // Act: DownloadDAO.addDownload
-      // Assert: getDownloads returns entry
-    });
-
-    test('TODO: downloaded media plays from local path', () {
-      // Requires integration test with audio player mock
-    });
+  test('playlist create, rename, cover, ordered edit and delete persist',
+      () async {
+    final id = (await playlists.createPlaylist('Test'))!;
+    final songs = [track('a'), track('b'), track('c')];
+    await playlists.setPlaylistTracks(id, songs);
+    await playlists.setPlaylistTracks(id, [songs[2], songs[0]]);
+    await playlists.updatePlaylistMeta(id, name: 'Rinominata');
+    await playlists.updatePlaylistThumbnail(
+        id, 'https://example.test/cover.jpg');
+    final read =
+        (await playlists.getPlaylistTracks(id)).map(trackDBToTrack).toList();
+    expect(read.map((t) => t.id), ['c', 'a']);
+    expect((await playlists.getPlaylistById(id))!.name, 'Rinominata');
+    expect((await playlists.getPlaylistById(id))!.thumbnail!.url,
+        'https://example.test/cover.jpg');
+    await playlists.deletePlaylist(id);
+    expect(await playlists.getPlaylistById(id), isNull);
   });
-
-  // P8-T003.4 — Settings persistence and app restart
-  group('Settings persistence', () {
-    test('TODO: putSettingBool persists and getSettingBool retrieves', () {
-      // Arrange: open in-memory Isar
-      // Act: SettingsDAO.putSettingBool("test_key", true)
-      // Assert: SettingsDAO.getSettingBool("test_key") == true
-    });
-
-    test('TODO: putSettingStr persists and getSettingStr retrieves', () {
-      // Arrange: open in-memory Isar
-      // Act: SettingsDAO.putSettingStr("test_key", "value")
-      // Assert: SettingsDAO.getSettingStr("test_key") == "value"
-    });
-
-    test('TODO: settings watcher fires on change', () {
-      // Arrange: open watcher for key
-      // Act: putSettingStr with new value
-      // Assert: stream emits updated value
-    });
+  test('download entry distinguishes an available file from a missing file',
+      () async {
+    final downloads = DownloadDAO(DBProvider.db, tracks, playlists);
+    final file = await File('${root.path}/a.audio').writeAsBytes([1, 2, 3]);
+    await downloads.putDownload(
+        fileName: 'a.audio', filePath: root.path, track: track('a'));
+    expect((await downloads.getValidDownloads()).map((d) => d.mediaId), ['a']);
+    await file.delete();
+    expect(await downloads.getValidDownloads(), isEmpty);
   });
-
-  // P8-T003.5 — Explore charts + cache fallback
-  group('Charts and cache fallback', () {
-    test('TODO: chart data loads from API and caches', () {
-      // Arrange: mock HTTP client, open in-memory Isar
-      // Act: fetchTrendingVideos (or chart repository fetch)
-      // Assert: CacheDAO.getChart returns cached chart
-    });
-
-    test('TODO: cache fallback on API failure', () {
-      // Arrange: pre-populate cache, mock HTTP to fail
-      // Act: fetchTrendingVideos
-      // Assert: returns cached chart data
-    });
+  test('settings and queue order survive closing and reopening the database',
+      () async {
+    await settings.putSettings({'one': 'uno', 'two': 'due'});
+    await settings.putSettingBool('enabled', true);
+    await (await DBProvider.db).close();
+    await DBProvider.init(
+        appSupportPath: root.path, appDocumentsPath: root.path);
+    expect(await settings.getSettingStr('two'), 'due');
+    expect(await settings.getSettingBool('enabled'), isTrue);
+    await settings.removeSettingStr('one');
+    expect(await settings.getSettingStr('one'), isNull);
+  });
+  test('local search pages are bounded and disjoint', () async {
+    await tracks.upsertTracks([
+      for (var i = 0; i < 75; i++) track('page-$i', title: 'Paging song $i')
+    ]);
+    final first = await tracks.searchTracks('Paging', limit: 60);
+    final second = await tracks.searchTracks('Paging', limit: 60, offset: 60);
+    expect(first, hasLength(60));
+    expect(second, hasLength(15));
+    expect(
+        first
+            .map((t) => t.mediaId)
+            .toSet()
+            .intersection(second.map((t) => t.mediaId).toSet()),
+        isEmpty);
+    expect(await tracks.searchTracks('Paging', offset: 100), isEmpty);
+  });
+  test('search matches artists and preserves non-Latin names', () async {
+    await tracks.upsertTracks([
+      track('a', title: 'Una canzone', artist: '宇多田ヒカル'),
+      track('b', artist: 'Altro')
+    ]);
+    expect((await tracks.searchTracks('宇多田', limit: 0)).map((t) => t.mediaId),
+        ['a']);
+  });
+  test('a retired DAO cannot read or write another profile database', () async {
+    await settings.putSettingStr('profile', 'original');
+    await DBProvider.switchDirectory('${root.path}/other-profile');
+    final next = SettingsDAO(DBProvider.db);
+    await next.putSettingStr('profile', 'other');
+    await expectLater(
+        settings.putSettingStr('profile', 'leaked'), throwsA(anything));
+    expect(await next.getSettingStr('profile'), 'other');
+    await DBProvider.switchDirectory(root.path);
+    expect(
+        await SettingsDAO(DBProvider.db).getSettingStr('profile'), 'original');
+  });
+  test('cache roundtrip and expired entries are purged', () async {
+    final cache = CacheDAO(DBProvider.db);
+    await cache.putCache('valid', '{"ok":true}', ttl: const Duration(hours: 1));
+    await cache.putCache('expired', 'old', ttl: const Duration(seconds: -1));
+    expect(await cache.getCacheValue('valid'), '{"ok":true}');
+    expect(await cache.getCacheValue('expired'), isNull);
   });
 }

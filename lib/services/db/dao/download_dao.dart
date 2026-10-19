@@ -170,7 +170,8 @@ class DownloadDAO {
         await _playlistDAO.getPlaylistByName(downloadsPlaylistName);
     if (downloadsPlaylist != null) {
       for (final mediaId in mediaIds) {
-        await _playlistDAO.removeTrackFromPlaylist(downloadsPlaylist.id, mediaId);
+        await _playlistDAO.removeTrackFromPlaylist(
+            downloadsPlaylist.id, mediaId);
       }
     }
   }
@@ -208,7 +209,8 @@ class DownloadDAO {
     final stale = <DownloadDB>[];
 
     final existences = await Future.wait(
-      all.map((record) => File('${record.filePath}/${record.fileName}').exists()),
+      all.map(
+          (record) => File('${record.filePath}/${record.fileName}').exists()),
     );
 
     for (var i = 0; i < all.length; i++) {
@@ -221,9 +223,9 @@ class DownloadDAO {
       }
     }
 
-    // Clean up stale records in the background in a single batch.
+    // Finish cleanup before callers can switch or close the database.
     if (stale.isNotEmpty) {
-      unawaited(removeDownloadsBatch(stale.map((s) => s.mediaId).toList()));
+      await removeDownloadsBatch(stale.map((s) => s.mediaId).toList());
     }
 
     return valid;

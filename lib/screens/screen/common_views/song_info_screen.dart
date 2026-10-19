@@ -16,7 +16,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SongInfoScreen extends StatefulWidget {
   final Track song;

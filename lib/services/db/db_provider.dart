@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
+import 'package:Bloomee/services/db/switchable_database.dart';
 
 import 'package:isar_community/isar.dart';
 import 'package:path/path.dart' as p;
@@ -23,7 +25,28 @@ import 'package:Bloomee/services/db/dao/track_dao.dart';
 class DBProvider {
   static late String appSuppDir;
   static late String appDocDir;
-  static late Future<Isar> db;
+  static bool _legacyRecovery = true;
+  static Timer? _maintenance;
+  static int _generation = 0;
+  static var _database = SwitchableDatabase();
+  static String? _databaseDirectory;
+  static Future<Isar> get db => _database;
+  static set db(Future<Isar> value) => _database.current = value;
+
+  static Future<void> switchDirectory(String directory) async {
+    final previous = await db;
+    _maintenance?.cancel();
+    _generation++;
+    await previous.close();
+    _database = SwitchableDatabase();
+    _databaseDirectory = directory;
+    appSuppDir = directory;
+    _legacyRecovery = false;
+    await Directory(directory).create(recursive: true);
+    db = openDB();
+    await db;
+    await scheduleMaintenance();
+  }
 
   static final List<CollectionSchema<dynamic>> _schemas = [
     TrackDBSchema,
@@ -44,7 +67,17 @@ class DBProvider {
   static Future<Isar> init({
     required String appSupportPath,
     required String appDocumentsPath,
-  }) {
+    bool allowLegacyRecovery = true,
+  }) async {
+    _maintenance?.cancel();
+    _generation++;
+    _legacyRecovery = allowLegacyRecovery;
+    final existing = Isar.getInstance('dbv3');
+    if (existing != null && existing.directory != appSupportPath)
+      await existing.close();
+    if (_databaseDirectory != null && _databaseDirectory != appSupportPath)
+      _database = SwitchableDatabase();
+    _databaseDirectory = appSupportPath;
     appSuppDir = appSupportPath;
     appDocDir = appDocumentsPath;
     db = openDB();
@@ -56,7 +89,7 @@ class DBProvider {
       String dbPath, List<String> bPaths) async {
     try {
       final File dbFile = File(dbPath);
-      if (!await dbFile.exists()) {
+      if (_legacyRecovery && !await dbFile.exists()) {
         for (var element in bPaths) {
           final File backUpFile = File(element);
           if (await backUpFile.exists()) {
@@ -73,7 +106,7 @@ class DBProvider {
 
   /// Open (or return existing) Isar instance.
   static Future<Isar> openDB() async {
-    if (Isar.instanceNames.isEmpty) {
+    if (Isar.getInstance('dbv3') == null) {
       final File dbFile = File(p.join(appSuppDir, 'dbv3.isar'));
       if (!await dbFile.exists()) {
         await checkAndRestoreDB(dbFile.path, [
@@ -84,18 +117,20 @@ class DBProvider {
       }
 
       // Migrate DB from documents dir to support dir if needed
-      if (!await dbFile.exists() &&
+      if (_legacyRecovery &&
+          !await dbFile.exists() &&
           await File(p.join(appDocDir, 'dbv3.isar')).exists()) {
-        final tempDb = Isar.openSync(_schemas, directory: appDocDir, name: 'dbv3');
-        tempDb.copyToFile(dbFile.path);
+        final tempDb =
+            Isar.openSync(_schemas, directory: appDocDir, name: 'dbv3');
+        await tempDb.copyToFile(dbFile.path);
         log("DB Copied to $appSuppDir", name: "DBProvider");
-        tempDb.close();
+        await tempDb.close();
       }
 
       log(appSuppDir, name: "DB");
       return Isar.openSync(_schemas, directory: appSuppDir, name: 'dbv3');
     }
-    return Future.value(Isar.getInstance());
+    return Future.value(Isar.getInstance('dbv3'));
   }
 
   /// Schedule periodic maintenance tasks (called once during bootstrap).
@@ -103,7 +138,7 @@ class DBProvider {
   /// - Ensures the "Liked" and "_DOWNLOADS" system playlists exist.
   /// - After a 30-second delay: purges old history, orphan tracks, expired
   ///   cache, and limits search history.
-  static void scheduleMaintenance() {
+  static Future<void> scheduleMaintenance() async {
     final trackDAO = TrackDAO(db);
     final playlistDAO = PlaylistDAO(db, trackDAO);
     final historyDAO = HistoryDAO(db, trackDAO);
@@ -112,31 +147,42 @@ class DBProvider {
     final searchHistoryDAO = SearchHistoryDAO(db);
 
     // Ensure standard playlists exist during startup.
-    playlistDAO.ensurePlaylist(likedPlaylist);
-    playlistDAO.ensurePlaylist(downloadPlaylist);
-    playlistDAO.ensurePlaylist(localMusicPlaylist);
+    await Future.wait([
+      playlistDAO.ensurePlaylist(likedPlaylist),
+      playlistDAO.ensurePlaylist(downloadPlaylist),
+      playlistDAO.ensurePlaylist(localMusicPlaylist)
+    ]);
 
-    Future.delayed(const Duration(seconds: 30), () async {
-      // Read configured history retention days.
-      final daysStr = await settingsDAO.getSettingStr(
-            'historyClearTime',
-            defaultValue: '7',
-          ) ??
-          '7';
-      final days = int.tryParse(daysStr) ?? 7;
+    _maintenance?.cancel();
+    final generation = _generation;
+    _maintenance = Timer(const Duration(seconds: 30), () async {
+      if (generation != _generation) return;
+      final current = await db;
+      if (!current.isOpen) return;
+      try {
+        // Read configured history retention days.
+        final daysStr = await settingsDAO.getSettingStr(
+              'historyClearTime',
+              defaultValue: '7',
+            ) ??
+            '7';
+        final days = int.tryParse(daysStr) ?? 7;
 
-      await historyDAO.purgeOldHistory(days);
-      await trackDAO.purgeOrphanTracks();
-      await cacheDAO.purgeExpiredCache();
-      await searchHistoryDAO.limitSearchHistory();
-      log('Scheduled maintenance complete', name: 'DBProvider');
+        await historyDAO.purgeOldHistory(days);
+        await trackDAO.purgeOrphanTracks();
+        await cacheDAO.purgeExpiredCache();
+        await searchHistoryDAO.limitSearchHistory();
+        log('Scheduled maintenance complete', name: 'DBProvider');
+      } catch (e) {
+        log('Maintenance postponed', name: 'DBProvider');
+      }
     });
   }
 
   /// Reset (clear) all collections in the database.
   static Future<void> resetDB() async {
     Isar isarDB = await db;
-    isarDB.writeTxn(() async {
+    await isarDB.writeTxn(() async {
       await isarDB.playlistEntryDBs.clear();
       await isarDB.playlistDBs.clear();
       await isarDB.appSettingsBoolDBs.clear();
@@ -147,6 +193,8 @@ class DBProvider {
       await isarDB.searchHistoryDBs.clear();
       await isarDB.cacheEntryDBs.clear();
       await isarDB.notificationsDBs.clear();
+      await isarDB.downloadDBs.clear();
+      await isarDB.pluginStorageEntitys.clear();
       log("DB reset successfully", name: "DBProvider");
     });
   }
@@ -189,26 +237,45 @@ class DBProvider {
   /// Create a binary backup of the database using Isar's built-in copy.
   ///
   /// Returns the backup file path on success, or null on failure.
-  static Future<String?> createBackUp() async {
+  static Future<String?> createBackUp({String? destination}) async {
+    Directory? staging;
+    Isar? snapshot;
     try {
       final isar = await db;
-      String backupFilePath = await getDbBackupFilePath();
-      // Change extension — binary Isar backup, not JSON.
-      backupFilePath = backupFilePath.replaceAll('.json', '.isar');
-
-      final backupDir = File(backupFilePath).parent;
-      if (!await backupDir.exists()) {
-        await backupDir.create(recursive: true);
-      }
-
-      // Isar's copyToFile creates a consistent snapshot without closing the DB.
-      isar.copyToFile(backupFilePath);
-      log('Backup created: $backupFilePath', name: 'DBProvider');
-      return backupFilePath;
+      final target = destination ??
+          (await getDbBackupFilePath()).replaceAll('.json', '.isar');
+      await File(target).parent.create(recursive: true);
+      staging = await Directory.systemTemp.createTemp('bloomee-backup-');
+      await isar.copyToFile(p.join(staging.path, 'backup_export.isar'));
+      snapshot = await Isar.open(_schemas,
+          directory: staging.path, name: 'backup_export');
+      final secretKey = RegExp(
+          r'(token|cookie|password|secret|session|api.?key|lastfmkey|tv\..*(key|visitor|datasync))',
+          caseSensitive: false);
+      await snapshot.writeTxn(() async {
+        final settings = await snapshot!.appSettingsStrDBs.where().findAll();
+        await snapshot.appSettingsStrDBs.deleteAll(settings
+            .where((s) => secretKey.hasMatch(s.settingName))
+            .map((s) => s.id)
+            .toList());
+        await snapshot.pluginStorageEntitys.clear();
+        await snapshot.cacheEntryDBs.clear();
+      });
+      // A second compacted copy excludes deleted pages containing secrets.
+      final safe = p.join(staging.path, 'sanitized.isar');
+      await snapshot.copyToFile(safe);
+      final temporary = '$target.tmp';
+      await File(safe).copy(temporary);
+      await File(temporary).rename(target);
+      return target;
     } catch (e) {
       log('Failed to create backup', error: e, name: 'DBProvider');
+      return null;
+    } finally {
+      await snapshot?.close();
+      if (staging != null && await staging.exists())
+        await staging.delete(recursive: true);
     }
-    return null;
   }
 
   /// Create a legacy full JSON backup with playlists and media_items sections.
@@ -313,9 +380,18 @@ class DBProvider {
   ///
   /// A rollback copy is kept during restore so failed restores can recover
   /// without leaving the app in a broken state.
-  static Future<Map<String, dynamic>> restoreDB(String? path) async {
+  static bool _restoring = false;
+  static Future<Map<String, dynamic>> restoreDB(String? path,
+      {Future<void> Function(String stage)? checkpoint}) async {
+    if (_restoring)
+      return {'success': false, 'error': 'Ripristino già in corso'};
+    _restoring = true;
+    Directory? validationDirectory;
+    Isar? validation;
     final primaryFile = File(p.join(appSuppDir, 'dbv3.isar'));
     final rollbackFile = File(p.join(appSuppDir, 'dbv3.restore_rollback.isar'));
+    var recovered = false;
+    var replacing = false;
 
     try {
       String backupFilePath =
@@ -328,9 +404,23 @@ class DBProvider {
         };
       }
 
+      if (await backupFile.length() < 8192)
+        throw const FormatException('Backup incompleto');
+      validationDirectory =
+          await Directory.systemTemp.createTemp('bloomee-restore-');
+      await backupFile
+          .copy(p.join(validationDirectory.path, 'restore_validation.isar'));
+      validation = await Isar.open(_schemas,
+          directory: validationDirectory.path, name: 'restore_validation');
+      await validation.playlistDBs.count();
+      await validation.close();
+      validation = null;
+      _maintenance?.cancel();
+      _generation++;
       // Close live DB before overwriting the file.
       final isar = await db;
       await isar.close();
+      replacing = true;
 
       if (rollbackFile.existsSync()) {
         rollbackFile.deleteSync();
@@ -344,6 +434,7 @@ class DBProvider {
       backupFile.copySync(primaryFile.path);
 
       // Re-open the DB and reassign the static future.
+      await checkpoint?.call('beforeOpen');
       db = openDB();
       await db;
 
@@ -351,6 +442,7 @@ class DBProvider {
         rollbackFile.deleteSync();
       }
 
+      recovered = true;
       log('DB restored from $backupFilePath', name: 'DBProvider');
       return {'success': true};
     } catch (e) {
@@ -358,6 +450,8 @@ class DBProvider {
           error: e, name: 'DBProvider');
 
       try {
+        if (!replacing)
+          return {'success': false, 'error': 'Backup non valido: $e'};
         if (rollbackFile.existsSync()) {
           if (primaryFile.existsSync()) {
             primaryFile.deleteSync();
@@ -365,8 +459,10 @@ class DBProvider {
           rollbackFile.copySync(primaryFile.path);
         }
 
+        await checkpoint?.call('beforeRollbackOpen');
         db = openDB();
         await db;
+        recovered = true;
       } catch (rollbackError) {
         log(
           'Rollback after restore failure failed',
@@ -380,7 +476,11 @@ class DBProvider {
         'error': 'Failed to restore binary backup: $e',
       };
     } finally {
-      if (rollbackFile.existsSync()) {
+      _restoring = false;
+      await validation?.close();
+      if (validationDirectory != null && await validationDirectory.exists())
+        await validationDirectory.delete(recursive: true);
+      if (recovered && rollbackFile.existsSync()) {
         try {
           rollbackFile.deleteSync();
         } catch (_) {}

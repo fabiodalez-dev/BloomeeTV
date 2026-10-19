@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:Bloomee/tv/tv_focus.dart';
+import 'package:Bloomee/tv/tv_config.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:characters/characters.dart';
+import 'package:Bloomee/tv/services/tv_pairing_server.dart';
 
 /// Palette dell'interfaccia TV.
 /// Mostra un segreto come pallini più le ultime 4 cifre, per riconoscerlo
@@ -65,12 +69,21 @@ class TvCover extends StatelessWidget {
         : url!.startsWith('http')
             ? CachedNetworkImage(
                 imageUrl: url!,
+                cacheKey: '${TvConfig.profileId}:$url',
+                httpHeaders: TvConfig.artworkHeaders(url),
                 fit: BoxFit.cover,
                 memCacheWidth: (size * 1.6).round(),
                 placeholder: (_, __) => placeholder,
                 errorWidget: (_, __, ___) => placeholder,
               )
-            : placeholder;
+            : (Uri.tryParse(url!)?.scheme == 'file' || url!.startsWith('/'))
+                ? Image.file(
+                    url!.startsWith('/')
+                        ? File(url!)
+                        : File.fromUri(Uri.parse(url!)),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => placeholder)
+                : placeholder;
     return SizedBox(
       width: size,
       height: size,
@@ -128,7 +141,9 @@ class TvCard extends StatelessWidget {
             TvFocusable(
               autofocus: autofocus,
               focusNode: focusNode,
-              onTap: onTap ?? () {},
+              semanticLabel:
+                  [title, if (subtitle != null) subtitle!].join(', '),
+              onTap: onTap,
               onLongPress: onLongPress,
               scaleOnFocus: 1.07,
               borderRadius: circle
@@ -185,6 +200,7 @@ class TvRow extends StatelessWidget {
 
   final String title;
   final String? subtitle;
+
   /// Se c'è, il titolo diventa un pulsante "Titolo ›" che apre l'elenco completo.
   final VoidCallback? onTitleTap;
   final int itemCount;
@@ -214,8 +230,10 @@ class TvRow extends StatelessWidget {
                           onTap: onTitleTap!,
                           borderRadius: BorderRadius.circular(10),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            child:
+                                Row(mainAxisSize: MainAxisSize.min, children: [
                               Flexible(
                                 child: Text(title,
                                     style: TvText.title,
@@ -223,8 +241,13 @@ class TvRow extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis),
                               ),
                               const SizedBox(width: 6),
-                              const Text('Tutti', style: TextStyle(color: TvColors.accent, fontSize: 18, fontFamily: 'Gilroy')),
-                              const Icon(Icons.chevron_right_rounded, color: TvColors.accent, size: 30),
+                              const Text('Tutti',
+                                  style: TextStyle(
+                                      color: TvColors.accent,
+                                      fontSize: 18,
+                                      fontFamily: 'Gilroy')),
+                              const Icon(Icons.chevron_right_rounded,
+                                  color: TvColors.accent, size: 30),
                             ]),
                           ),
                         ),
@@ -238,7 +261,10 @@ class TvRow extends StatelessWidget {
             ),
           ),
           SizedBox(
-            height: height,
+            height: height +
+                (MediaQuery.textScalerOf(context).scale(16) / 16 - 1)
+                        .clamp(0, 2) *
+                    120,
             // Niente FocusTraversalGroup: con i gruppi la freccia giù
             // scavalcava le righe orizzontali.
             child: ListView.separated(
@@ -289,7 +315,7 @@ class _TvPillButtonState extends State<TvPillButton> {
     final label = widget.label;
     // Focus: pieno rosa. Principale/scheda attiva: solo bordo rosa.
     final fg =
-        _focused ? Colors.white : (primary ? TvColors.accent : TvColors.text);
+        _focused ? TvColors.bg : (primary ? TvColors.accent : TvColors.text);
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
@@ -318,7 +344,11 @@ class _TvPillButtonState extends State<TvPillButton> {
             children: [
               Icon(icon, color: fg, size: 24),
               const SizedBox(width: 10),
-              Text(label, style: TvText.card.copyWith(fontSize: 17, color: fg)),
+              Flexible(
+                  child: Text(label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TvText.card.copyWith(fontSize: 17, color: fg))),
             ],
           ),
         ),
@@ -389,6 +419,7 @@ class TvTrackTile extends StatefulWidget {
   final Duration? duration;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
   /// Se null, la riga capisce da sola se è il brano in riproduzione.
   final bool? playing;
   final bool autofocus;
@@ -403,9 +434,13 @@ class TvTrackTile extends StatefulWidget {
 class _TvTrackTileState extends State<TvTrackTile> {
   final _node = FocusNode(debugLabel: 'tv-track');
 
-  static String _norm(String? s) => (s ?? '').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  static String _norm(String? s) =>
+      (s ?? '').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 
-  bool get _isPlaying => widget.playing ?? (_norm(tvNowPlayingTitle.value) == _norm(widget.title) && widget.title.isNotEmpty);
+  bool get _isPlaying =>
+      widget.playing ??
+      (_norm(tvNowPlayingTitle.value) == _norm(widget.title) &&
+          widget.title.isNotEmpty);
 
   @override
   void initState() {
@@ -460,7 +495,8 @@ class _TvTrackTileState extends State<TvTrackTile> {
               SizedBox(
                 width: 36,
                 child: playing
-                    ? const Icon(Icons.graphic_eq_rounded, color: TvColors.accent)
+                    ? const Icon(Icons.graphic_eq_rounded,
+                        color: TvColors.accent)
                     : Text('${widget.index}', style: TvText.cardSub),
               ),
               Expanded(
@@ -470,16 +506,24 @@ class _TvTrackTileState extends State<TvTrackTile> {
                     Text(widget.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TvText.card.copyWith(color: playing ? TvColors.accent : TvColors.text)),
+                        style: TvText.card.copyWith(
+                            color: playing ? TvColors.accent : TvColors.text)),
                     if (widget.subtitle != null && widget.subtitle!.isNotEmpty)
-                      Text(widget.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.cardSub),
+                      Text(widget.subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TvText.cardSub),
                   ],
                 ),
               ),
               if (playing)
                 const Padding(
                   padding: EdgeInsets.only(right: 14),
-                  child: Text('In riproduzione', style: TextStyle(color: TvColors.accent, fontSize: 14, fontFamily: 'Gilroy')),
+                  child: Text('In riproduzione',
+                      style: TextStyle(
+                          color: TvColors.accent,
+                          fontSize: 14,
+                          fontFamily: 'Gilroy')),
                 ),
               if (widget.duration != null && widget.duration! > Duration.zero)
                 Text(TvTrackTile.fmt(widget.duration!), style: TvText.cardSub),
@@ -653,6 +697,7 @@ class _TvKeyboard extends StatefulWidget {
 
 class _TvKeyboardState extends State<_TvKeyboard> {
   late String _text = widget.initial;
+  late int _cursor = widget.initial.characters.length;
   final _firstKey = FocusNode(debugLabel: 'tv-kb-a');
 
   @override
@@ -680,14 +725,31 @@ class _TvKeyboardState extends State<_TvKeyboard> {
   bool _symbols = false;
 
   static const _letters = ['abcdefghijklm', 'nopqrstuvwxyz', 'àèéìòù\'-.,&!?'];
-  static const _digits = ['1234567890', '@#/:_+()=*%"', 'àèéìòù\'-.,&!?'];
+  static final _digits = [
+    String.fromCharCodes(List.generate(94, (i) => i + 33))
+  ];
 
-  void _type(String c) => setState(() => _text += _upper ? c.toUpperCase() : c);
+  void _type(String c, {bool applyCase = true}) => setState(() {
+        final chars = _text.characters.toList();
+        final insert =
+            (applyCase && _upper ? c.toUpperCase() : c).characters.toList();
+        chars.insertAll(_cursor, insert);
+        _cursor += insert.length;
+        _text = chars.join();
+      });
   void _back() {
-    if (_text.isNotEmpty)
-      setState(() => _text = _text.substring(0, _text.length - 1));
+    if (_cursor == 0) return;
+    setState(() {
+      final chars = _text.characters.toList();
+      chars.removeAt(--_cursor);
+      _text = chars.join();
+    });
   }
 
+  void _clear() => setState(() {
+        _text = '';
+        _cursor = 0;
+      });
   KeyEventResult _onHardware(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent && e is! KeyRepeatEvent)
       return KeyEventResult.ignored;
@@ -700,7 +762,7 @@ class _TvKeyboardState extends State<_TvKeyboard> {
         ch.isNotEmpty &&
         ch.runes.first >= 32 &&
         !kTvSelectKeys.contains(e.logicalKey)) {
-      setState(() => _text += ch);
+      _type(ch, applyCase: false);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -731,14 +793,19 @@ class _TvKeyboardState extends State<_TvKeyboard> {
           ),
           child: icon != null
               ? Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(icon, color: Colors.white, size: 22),
+                  Icon(icon,
+                      color: primary ? TvColors.bg : TvColors.text, size: 22),
                   if (label.isNotEmpty) ...[
                     const SizedBox(width: 6),
                     Text(label, style: TvText.card)
                   ],
                 ])
-              : Text(_upper ? label.toUpperCase() : label,
-                  style: TvText.card.copyWith(fontSize: 20)),
+              : FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(_upper ? label.toUpperCase() : label,
+                      style: TvText.card.copyWith(
+                          fontSize: 20,
+                          color: primary ? TvColors.bg : TvColors.text))),
         ),
       ),
     );
@@ -746,72 +813,87 @@ class _TvKeyboardState extends State<_TvKeyboard> {
 
   @override
   Widget build(BuildContext context) {
-    final rows = _symbols ? _digits : _letters;
-    final shown = widget.obscure ? '•' * _text.length : _text;
+    final keys = (_symbols ? _digits.join() : '${_letters.join()}1234567890')
+        .characters
+        .toList();
+    final display = widget.obscure
+        ? List.filled(_text.characters.length, '•')
+        : _text.characters.toList();
+    final shown =
+        [...display.take(_cursor), '│', ...display.skip(_cursor)].join();
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onKeyEvent: _onHardware,
       child: Dialog(
         backgroundColor: TvColors.surface,
-        insetPadding: const EdgeInsets.all(24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: FocusTraversalGroup(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(widget.title, style: TvText.cardSub),
+        insetPadding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: 900,
+          height: MediaQuery.sizeOf(context).height - 48,
+          child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(children: [
+                Text(widget.title, style: TvText.title),
                 const SizedBox(height: 8),
                 Container(
-                  width: 840,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  decoration: BoxDecoration(
-                      color: TvColors.bg,
-                      borderRadius: BorderRadius.circular(10)),
-                  child: Text(shown.isEmpty ? ' ' : '$shown|',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TvText.title.copyWith(fontSize: 26)),
-                ),
-                const SizedBox(height: 14),
-                for (var r = 0; r < rows.length; r++)
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    for (var i = 0; i < rows[r].length; i++)
-                      _key(rows[r][i], () => _type(rows[r][i]),
-                          autofocus: r == 0 && i == 0),
-                  ]),
-                if (!_symbols)
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    for (final d in '1234567890'.split(''))
-                      _key(d, () => _type(d)),
-                  ]),
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  _key('', () => setState(() => _upper = !_upper),
-                      icon: _upper
-                          ? Icons.keyboard_capslock_rounded
-                          : Icons.arrow_upward_rounded,
-                      width: 80),
-                  _key(_symbols ? 'abc' : '#+=',
+                    width: double.infinity,
+                    color: TvColors.bg,
+                    padding: const EdgeInsets.all(10),
+                    child: Text(shown.isEmpty ? ' ' : '$shown|',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TvText.title)),
+                if (!widget.obscure)
+                  ListenableBuilder(
+                      listenable: tvPairing,
+                      builder: (_, __) => tvPairing.pendingText == null
+                          ? const SizedBox.shrink()
+                          : TextButton(
+                              onPressed: () => setState(() {
+                                    _text = tvPairing.takeText()!;
+                                    _cursor = _text.characters.length;
+                                  }),
+                              child: const Text(
+                                  'Usa il testo inviato dal telefono'))),
+                const SizedBox(height: 8),
+                Expanded(
+                    child: LayoutBuilder(
+                        builder: (_, constraints) => GridView.builder(
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: (constraints.maxWidth / 62)
+                                        .floor()
+                                        .clamp(4, 13),
+                                    mainAxisExtent: 60),
+                            itemCount: keys.length,
+                            itemBuilder: (_, i) => _key(
+                                keys[i], () => _type(keys[i]),
+                                autofocus: i == 0)))),
+                Wrap(alignment: WrapAlignment.center, children: [
+                  _key(_upper ? 'abc' : 'ABC',
+                      () => setState(() => _upper = !_upper),
+                      width: 85),
+                  _key(_symbols ? 'Lettere' : 'Simboli',
                       () => setState(() => _symbols = !_symbols),
-                      width: 90),
-                  _key('Spazio', () => _type(' '),
-                      width: 230, icon: Icons.space_bar_rounded),
-                  // OK = cancella una lettera; OK tenuto premuto = cancella tutto.
-                  _key('', _back,
-                      icon: Icons.backspace_rounded,
-                      width: 80,
-                      onLongPress: () => setState(() => _text = '')),
-                  _key('Svuota', () => setState(() => _text = ''),
-                      width: 120, icon: Icons.clear_rounded),
-                  _key(widget.actionLabel,
-                      () => Navigator.of(context).pop(_text),
-                      width: 150, icon: Icons.check_rounded, primary: true),
+                      width: 110),
+                  _key('Spazio', () => _type(' '), width: 110),
+                  _key('Cancella', _back, width: 110, onLongPress: _clear),
+                  _key('Svuota', _clear, width: 100),
+                  _key(
+                      'Cursore ←',
+                      () => setState(() => _cursor =
+                          (_cursor - 1).clamp(0, _text.characters.length)),
+                      width: 110),
+                  _key(
+                      'Cursore →',
+                      () => setState(() => _cursor =
+                          (_cursor + 1).clamp(0, _text.characters.length)),
+                      width: 110),
+                  _key(widget.actionLabel, () => Navigator.pop(context, _text),
+                      width: 140, primary: true),
                 ]),
-              ],
-            ),
-          ),
+              ])),
         ),
       ),
     );

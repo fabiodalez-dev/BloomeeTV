@@ -11,7 +11,6 @@ import 'package:Bloomee/services/plugin/plugin_event_bus.dart';
 import 'package:Bloomee/src/rust/api/plugin/events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 Future<void> openURL(String url) async {
   openLink(Uri.parse(url));

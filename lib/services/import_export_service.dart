@@ -173,8 +173,7 @@ class ImportExportService {
       final Map<String, dynamic> playlistMap = {
         '_meta': {
           'generated_by': 'Bloomee - Open Source Music Streaming Application',
-          'version':
-              'v${packageInfo.version}+${int.parse(packageInfo.buildNumber) % 1000}',
+          'version': 'v${packageInfo.version}+${packageInfo.buildNumber}',
           'exportedAt': DateTime.now().toIso8601String(),
           'format': 'v2',
           'note':
@@ -202,8 +201,7 @@ class ImportExportService {
       final packageInfo = await PackageInfo.fromPlatform();
       trackMap['_meta'] = {
         'generated_by': 'Bloomee - Open Source Music Streaming Application',
-        'version':
-            'v${packageInfo.version}+${int.parse(packageInfo.buildNumber) % 1000}',
+        'version': 'v${packageInfo.version}+${packageInfo.buildNumber}',
         'exportedAt': DateTime.now().toIso8601String(),
         'format': 'v2',
       };
@@ -297,7 +295,8 @@ class ImportExportService {
       } else if (data.containsKey('title') &&
           (data.containsKey('mediaId') || data.containsKey('duration'))) {
         return await importMediaItem(filePath);
-      } else if (data.containsKey('playlists') && data.containsKey('media_items')) {
+      } else if (data.containsKey('playlists') &&
+          data.containsKey('media_items')) {
         final result = await DBProvider.restoreLegacyJsonBackup(filePath);
         return result['success'] == true;
       } else {
@@ -329,8 +328,7 @@ class ImportExportService {
       final Map<String, dynamic> playlistMap = {
         '_meta': {
           'generated_by': 'Bloomee - Open Source Music Streaming Application',
-          'version':
-              'v${packageInfo.version}+${int.parse(packageInfo.buildNumber) % 1000}',
+          'version': 'v${packageInfo.version}+${packageInfo.buildNumber}',
           'exportedAt': DateTime.now().toIso8601String(),
         },
         'playlistName': playlistDB.name,
@@ -436,7 +434,8 @@ class ImportExportService {
 
   /// Production-level entry point to handle any shared or picked import/restore file.
   /// Handles: Isar snapshots (.isar/.db), legacy full JSON backups, and playlist/song JSON exports.
-  static Future<void> handleImportOrRestore(BuildContext context, String filePath) async {
+  static Future<void> handleImportOrRestore(
+      BuildContext context, String filePath) async {
     final l10n = AppLocalizations.of(context)!;
     try {
       final file = File(filePath);
@@ -454,27 +453,36 @@ class ImportExportService {
             context: context,
             builder: (ctx) => AlertDialog(
               backgroundColor: const Color.fromARGB(255, 24, 24, 24),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               title: Text(
                 l10n.storageRestoreConfirmTitle,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
               ),
               content: Text(
                 "${l10n.storageRestoreConfirmPrefix}\n\n${l10n.storageRestoreMediaBullet}\n${l10n.storageRestoreHistoryBullet}\n\n${l10n.storageRestoreConfirmSuffix}",
-                style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 14, height: 1.5),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(l10n.storageRestoreNo, style: const TextStyle(color: Colors.white70)),
+                  child: Text(l10n.storageRestoreNo,
+                      style: const TextStyle(color: Colors.white70)),
                 ),
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: Default_Theme.accentColor2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: Text(l10n.storageRestoreYes, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(l10n.storageRestoreYes,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -499,9 +507,15 @@ class ImportExportService {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const CircularProgressIndicator(color: Default_Theme.accentColor2),
+                      const CircularProgressIndicator(
+                          color: Default_Theme.accentColor2),
                       const SizedBox(height: 16),
-                      Text(l10n.storageRestoring, style: const TextStyle(color: Colors.white, decoration: TextDecoration.none, fontSize: 14), textAlign: TextAlign.center),
+                      Text(l10n.storageRestoring,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              decoration: TextDecoration.none,
+                              fontSize: 14),
+                          textAlign: TextAlign.center),
                     ],
                   ),
                 ),
@@ -518,25 +532,35 @@ class ImportExportService {
             context: context,
             builder: (ctx) => AlertDialog(
               backgroundColor: const Color.fromARGB(255, 24, 24, 24),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               title: Text(
-                success ? l10n.storageRestoreCompleted : l10n.storageRestoreFailedTitle,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                success
+                    ? l10n.storageRestoreCompleted
+                    : l10n.storageRestoreFailedTitle,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
               ),
               content: Text(
                 success
                     ? l10n.storageRestoreSuccessMessage
                     : "${l10n.storageRestoreFailedMessage}\n- ${result['error'] ?? l10n.storageRestoreUnknownError}",
-                style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 14, height: 1.5),
               ),
               actions: [
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: Default_Theme.accentColor2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text(l10n.buttonOk, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(l10n.buttonOk,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -549,27 +573,36 @@ class ImportExportService {
             context: context,
             builder: (ctx) => AlertDialog(
               backgroundColor: const Color.fromARGB(255, 24, 24, 24),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               title: Text(
                 l10n.storageRestoreConfirmTitle,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
               ),
               content: Text(
                 "${l10n.storageRestoreConfirmPrefix}\n\n${l10n.storageRestoreMediaBullet}\n\n${l10n.storageRestoreConfirmSuffix}",
-                style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 14, height: 1.5),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(l10n.storageRestoreNo, style: const TextStyle(color: Colors.white70)),
+                  child: Text(l10n.storageRestoreNo,
+                      style: const TextStyle(color: Colors.white70)),
                 ),
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: Default_Theme.accentColor2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: Text(l10n.storageRestoreYes, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(l10n.storageRestoreYes,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -594,9 +627,15 @@ class ImportExportService {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const CircularProgressIndicator(color: Default_Theme.accentColor2),
+                      const CircularProgressIndicator(
+                          color: Default_Theme.accentColor2),
                       const SizedBox(height: 16),
-                      Text(l10n.storageRestoring, style: const TextStyle(color: Colors.white, decoration: TextDecoration.none, fontSize: 14), textAlign: TextAlign.center),
+                      Text(l10n.storageRestoring,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              decoration: TextDecoration.none,
+                              fontSize: 14),
+                          textAlign: TextAlign.center),
                     ],
                   ),
                 ),
@@ -613,25 +652,35 @@ class ImportExportService {
             context: context,
             builder: (ctx) => AlertDialog(
               backgroundColor: const Color.fromARGB(255, 24, 24, 24),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               title: Text(
-                success ? l10n.storageRestoreCompleted : l10n.storageRestoreFailedTitle,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                success
+                    ? l10n.storageRestoreCompleted
+                    : l10n.storageRestoreFailedTitle,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
               ),
               content: Text(
                 success
                     ? l10n.storageRestoreSuccessMessage
                     : "${l10n.storageRestoreFailedMessage}\n- ${result['error'] ?? l10n.storageRestoreUnknownError}",
-                style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 14, height: 1.5),
               ),
               actions: [
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: Default_Theme.accentColor2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text(l10n.buttonOk, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(l10n.buttonOk,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

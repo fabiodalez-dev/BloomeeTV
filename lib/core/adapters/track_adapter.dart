@@ -16,18 +16,21 @@ import 'package:audio_service/audio_service.dart';
 /// Convert a plugin [Track] to an audio_service [MediaItem].
 ///
 /// Used at the player→OS boundary for notifications and lock screen.
-MediaItem trackToMediaItem(Track track) {
+MediaItem trackToMediaItem(Track track,
+    {Map<String, String>? artHeaders, Uri? remoteArtUri}) {
   final artistStr = track.artists.isNotEmpty
       ? track.artists.map((a) => a.name).join(', ')
       : 'Unknown Artist';
 
+  final art = safeTrackArtworkUri(track);
   return MediaItem(
     id: track.id,
     title: track.title,
     album: track.album?.title ?? '',
     // audio_service_win C++ crashes on null album (std::get<std::string> on null variant).
     artist: artistStr,
-    artUri: _safeArtUri(track.thumbnail.urlHigh ?? track.thumbnail.url),
+    artUri: art,
+    artHeaders: artHeaders,
     // Campi "display": li usano le notifiche e i controlli remoti (telefono
     // collegato al Chromecast, Google Home) invece di title/artist.
     displayTitle: track.title,
@@ -40,10 +43,13 @@ MediaItem trackToMediaItem(Track track) {
       // Chiavi MediaMetadata standard di Android (audio_service le copia
       // tali e quali nella sessione).
       'android.media.metadata.ALBUM_ARTIST': artistStr,
-      if (_safeArtUri(track.thumbnail.urlHigh ?? track.thumbnail.url) != null)
-        'android.media.metadata.ART_URI': (track.thumbnail.urlHigh ?? track.thumbnail.url),
-      if (_safeArtUri(track.thumbnail.urlHigh ?? track.thumbnail.url) != null)
-        'android.media.metadata.ALBUM_ART_URI': (track.thumbnail.urlHigh ?? track.thumbnail.url),
+      'android.media.metadata.MEDIA_URI': track.id,
+      if (art != null) ...{
+        'android.media.metadata.ART_URI': art.toString(),
+        'android.media.metadata.ALBUM_ART_URI': art.toString(),
+        'android.media.metadata.DISPLAY_ICON_URI':
+            (remoteArtUri ?? art).toString(),
+      },
       'isExplicit': track.isExplicit,
       'thumbnailUrl': track.thumbnail.url,
       'thumbnailUrlLow': track.thumbnail.urlLow,
@@ -51,6 +57,12 @@ MediaItem trackToMediaItem(Track track) {
     },
   );
 }
+
+Uri? safeTrackArtworkUri(Track track) => [
+      track.thumbnail.urlHigh,
+      track.thumbnail.url,
+      track.thumbnail.urlLow
+    ].whereType<String>().map(_safeArtUri).whereType<Uri>().firstOrNull;
 
 /// Validate a thumbnail URL before creating an [artUri] for MediaItem.
 ///

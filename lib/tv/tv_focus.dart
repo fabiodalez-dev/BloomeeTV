@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:Bloomee/tv/services/tv_workspace.dart';
 
 import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter/gestures.dart';
@@ -39,11 +40,13 @@ class TvFocusable extends StatefulWidget {
     this.scaleOnFocus = 1.0,
     this.debugLabel,
     this.selected = false,
+    this.semanticLabel,
   });
 
   /// Elemento "scelto" della sua riga (es. la scheda attiva): entrando nella
   /// riga dall'alto o dal basso il focus va qui.
   final bool selected;
+  final String? semanticLabel;
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -67,7 +70,8 @@ class _TvFocusableState extends State<TvFocusable> {
   // rilascio del tasto premuto nel dialogo, riaprendolo).
   bool _pressed = false;
   FocusNode? _own;
-  FocusNode get _node => widget.focusNode ?? (_own ??= FocusNode(debugLabel: widget.debugLabel));
+  FocusNode get _node =>
+      widget.focusNode ?? (_own ??= FocusNode(debugLabel: widget.debugLabel));
 
   @override
   void initState() {
@@ -102,7 +106,8 @@ class _TvFocusableState extends State<TvFocusable> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (!kTvSelectKeys.contains(event.logicalKey)) return KeyEventResult.ignored;
+    if (!kTvSelectKeys.contains(event.logicalKey))
+      return KeyEventResult.ignored;
     if (widget.onTap == null && widget.onLongPress == null) {
       return KeyEventResult.ignored;
     }
@@ -142,37 +147,60 @@ class _TvFocusableState extends State<TvFocusable> {
   Widget build(BuildContext context) {
     final interactive = widget.onTap != null || widget.onLongPress != null;
     _focused = _node.hasPrimaryFocus;
-    return Focus(
-      focusNode: _node,
-      autofocus: widget.autofocus,
-      canRequestFocus: interactive,
-      skipTraversal: !interactive,
-      onKeyEvent: _onKey,
-      child: AnimatedScale(
-        scale: _focused ? widget.scaleOnFocus : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: DecoratedBox(
-          position: DecorationPosition.foreground,
-          decoration: BoxDecoration(
-            borderRadius: widget.borderRadius,
-            border: Border.all(
-              color: _focused ? kTvFocusColor : Colors.transparent,
-              width: 3,
-            ),
-            boxShadow: _focused
-                ? [
-                    BoxShadow(
-                      color: kTvFocusColor.withValues(alpha: 0.35),
-                      blurRadius: 14,
-                      spreadRadius: 1,
-                    )
-                  ]
-                : const [],
-          ),
-          child: widget.child,
-        ),
-      ),
-    );
+    return Semantics(
+        label: widget.semanticLabel,
+        button: true,
+        enabled: interactive,
+        selected: widget.selected,
+        focusable: interactive,
+        focused: _focused,
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        child: GestureDetector(
+            excludeFromSemantics: true,
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            child: Focus(
+              focusNode: _node,
+              autofocus: widget.autofocus,
+              canRequestFocus: interactive,
+              skipTraversal: !interactive,
+              onKeyEvent: _onKey,
+              child: AnimatedScale(
+                scale: _focused && TvWorkspace.instance['reduceMotion'] != true
+                    ? widget.scaleOnFocus
+                    : 1.0,
+                duration: MediaQuery.disableAnimationsOf(context) ||
+                        TvWorkspace.instance['reduceMotion'] == true
+                    ? Duration.zero
+                    : const Duration(milliseconds: 120),
+                child: DecoratedBox(
+                  position: DecorationPosition.foreground,
+                  decoration: BoxDecoration(
+                    borderRadius: widget.borderRadius,
+                    border: Border.all(
+                      color: _focused
+                          ? (TvWorkspace.instance['highContrast'] == true
+                              ? Colors.white
+                              : kTvFocusColor)
+                          : Colors.transparent,
+                      width:
+                          TvWorkspace.instance['strongFocus'] == true ? 5 : 3,
+                    ),
+                    boxShadow: _focused
+                        ? [
+                            BoxShadow(
+                              color: kTvFocusColor.withValues(alpha: 0.35),
+                              blurRadius: 14,
+                              spreadRadius: 1,
+                            )
+                          ]
+                        : const [],
+                  ),
+                  child: widget.child,
+                ),
+              ),
+            )));
   }
 }
 
@@ -273,7 +301,8 @@ class TvGestureDetector extends StatelessWidget {
         (onLongPressStart != null
             ? () => onLongPressStart!(const LongPressStartDetails())
             : null);
-    if (!TvMode.isTv || !tvFocusable || (tap == null && long == null)) return detector;
+    if (!TvMode.isTv || !tvFocusable || (tap == null && long == null))
+      return detector;
     return TvFocusable(
       onTap: tap,
       onLongPress: long,
@@ -301,7 +330,8 @@ class _FocusRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final r = rect;
     if (r == null) return;
-    final rr = RRect.fromRectAndRadius(r.inflate(3), Radius.circular((r.shortestSide / 2).clamp(6, 16)));
+    final rr = RRect.fromRectAndRadius(
+        r.inflate(3), Radius.circular((r.shortestSide / 2).clamp(6, 16)));
     canvas.drawRRect(
         rr,
         Paint()
@@ -355,7 +385,11 @@ class _FocusRingState extends State<_FocusRing> {
     if (!_alive || !mounted) return;
     final p = FocusManager.instance.primaryFocus;
     Rect? r;
-    if (p != null && p is! FocusScopeNode && p.context != null && p.context!.mounted && _selfHighlighted[p] != true &&
+    if (p != null &&
+        p is! FocusScopeNode &&
+        p.context != null &&
+        p.context!.mounted &&
+        _selfHighlighted[p] != true &&
         p.context!.findAncestorStateOfType<EditableTextState>() == null) {
       final rect = p.rect;
       if (!rect.isEmpty && rect.width > 4 && rect.height > 4) r = rect;
@@ -368,8 +402,23 @@ class _FocusRingState extends State<_FocusRing> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      IgnorePointer(child: CustomPaint(painter: _FocusRingPainter(_rect), size: Size.infinite));
+  Widget build(BuildContext context) => IgnorePointer(
+      child:
+          CustomPaint(painter: _FocusRingPainter(_rect), size: Size.infinite));
+}
+
+/// Throttles held arrows without delaying individual key presses.
+class TvKeyRepeatGate {
+  DateTime? _last;
+  bool allow(
+      {required bool repeat,
+      required DateTime now,
+      required Duration interval}) {
+    if (repeat && _last != null && now.difference(_last!) < interval)
+      return false;
+    _last = now;
+    return true;
+  }
 }
 
 class TvRoot extends StatefulWidget {
@@ -381,6 +430,7 @@ class TvRoot extends StatefulWidget {
 }
 
 class _TvRootState extends State<TvRoot> {
+  final _repeatGate = TvKeyRepeatGate();
   static final _arrows = {
     LogicalKeyboardKey.arrowUp,
     LogicalKeyboardKey.arrowDown,
@@ -417,7 +467,8 @@ class _TvRootState extends State<TvRoot> {
     _pendingScope = scope;
     for (final ms in const [80, 400, 900, 1800, 3500, 6000]) {
       Future.delayed(Duration(milliseconds: ms), () {
-        if (!mounted || !identical(FocusManager.instance.primaryFocus, scope)) return;
+        if (!mounted || !identical(FocusManager.instance.primaryFocus, scope))
+          return;
         tvFocusFirstIn(scope);
       });
     }
@@ -463,9 +514,18 @@ class _TvRootState extends State<TvRoot> {
         }
         final pos = st.position;
         if (delta.abs() > 0.5) {
-          final reversed = st.axisDirection == AxisDirection.up || st.axisDirection == AxisDirection.left;
-          final target = (pos.pixels + (reversed ? -delta : delta)).clamp(pos.minScrollExtent, pos.maxScrollExtent);
-          pos.animateTo(target, duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+          final reversed = st.axisDirection == AxisDirection.up ||
+              st.axisDirection == AxisDirection.left;
+          final target = (pos.pixels + (reversed ? -delta : delta))
+              .clamp(pos.minScrollExtent, pos.maxScrollExtent);
+          if (TvWorkspace.instance['reduceMotion'] == true ||
+              MediaQuery.disableAnimationsOf(st.context)) {
+            pos.jumpTo(target);
+          } else {
+            pos.animateTo(target,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut);
+          }
         }
       }
       c = st.context;
@@ -478,18 +538,29 @@ class _TvRootState extends State<TvRoot> {
     // Doppio OK: il secondo arriva sulla pagina appena aperta e farebbe
     // partire il suo primo pulsante. Subito dopo l'apertura lo ignoro.
     if (kTvSelectKeys.contains(event.logicalKey) &&
-        DateTime.now().difference(_pageOpened) < const Duration(milliseconds: 600)) {
+        DateTime.now().difference(_pageOpened) <
+            const Duration(milliseconds: 600)) {
       return true;
     }
     if ((event is! KeyDownEvent && event is! KeyRepeatEvent) ||
         !_arrows.contains(event.logicalKey)) {
       return false;
     }
+    if (!_repeatGate.allow(
+        repeat: event is KeyRepeatEvent,
+        now: DateTime.now(),
+        interval: Duration(
+            milliseconds: (TvWorkspace.instance['keyRepeatMs'] as int? ?? 120)
+                .clamp(80, 300)))) return true;
     final primary = FocusManager.instance.primaryFocus;
     // Focus su un contenitore (non un elemento): la freccia va sul primo
     // elemento interattivo al suo interno.
-    if (primary != null && primary is! FocusScopeNode && event is KeyDownEvent) {
-      final inner = primary.traversalDescendants.where((n) => n.canRequestFocus && n is! FocusScopeNode).toList();
+    if (primary != null &&
+        primary is! FocusScopeNode &&
+        event is KeyDownEvent) {
+      final inner = primary.traversalDescendants
+          .where((n) => n.canRequestFocus && n is! FocusScopeNode)
+          .toList();
       if (inner.isNotEmpty && primary.context?.widget is! EditableText) {
         final ctx = primary.context;
         final isLeaf = ctx == null || inner.every((n) => n.context == null);
@@ -502,19 +573,17 @@ class _TvRootState extends State<TvRoot> {
     if (primary == null || primary is FocusScopeNode) {
       if (event is! KeyDownEvent) return false;
       // Focus perso (es. dopo Indietro): sinistra apre sempre il menu.
-      if (event.logicalKey == LogicalKeyboardKey.arrowLeft && tvFocusMenu != null) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+          tvFocusMenu != null) {
         tvFocusMenu!();
         return true;
       }
-      final scope = primary is FocusScopeNode
-          ? primary
-          : FocusManager.instance.rootScope;
+      final scope =
+          primary is FocusScopeNode ? primary : FocusManager.instance.rootScope;
       return tvFocusFirstIn(scope) || scope.nextFocus();
     }
     return false;
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -589,14 +658,20 @@ Object? tvRowKeyOf(FocusNode n) {
   final ctx = n.context;
   if (ctx == null || !ctx.mounted) return null;
   final s = Scrollable.maybeOf(ctx);
-  if (s != null && axisDirectionToAxis(s.axisDirection) == Axis.horizontal) return s;
+  if (s != null && axisDirectionToAxis(s.axisDirection) == Axis.horizontal)
+    return s;
   final h = n.rect.height;
   RenderObject? ro = ctx.findRenderObject()?.parent;
   for (var i = 0; ro != null && i < 14; i++, ro = ro.parent) {
     if (ro is RenderSliver || ro is RenderAbstractViewport) return null;
-    if (ro is RenderBox && ro.hasSize && ro.size.height > h * 2.2 + 24) return null;
-    if (ro is RenderWrap && ro.direction == Axis.horizontal && ro.childCount > 1) return ro;
-    if (ro is RenderFlex && ro.direction == Axis.horizontal && ro.childCount > 1) return ro;
+    if (ro is RenderBox && ro.hasSize && ro.size.height > h * 2.2 + 24)
+      return null;
+    if (ro is RenderWrap &&
+        ro.direction == Axis.horizontal &&
+        ro.childCount > 1) return ro;
+    if (ro is RenderFlex &&
+        ro.direction == Axis.horizontal &&
+        ro.childCount > 1) return ro;
   }
   return null;
 }
@@ -663,7 +738,8 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
   const slack = 8.0;
   final candidates = <FocusNode>[];
   for (final n in scope.traversalDescendants) {
-    if (identical(n, current) || n is FocusScopeNode || !n.canRequestFocus) continue;
+    if (identical(n, current) || n is FocusScopeNode || !n.canRequestFocus)
+      continue;
     final c = n.context;
     if (c == null || !c.mounted) continue;
     final r = n.rect;
@@ -678,9 +754,16 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
   final pos = scrollable?.position;
   final inSame = scrollable == null
       ? <FocusNode>[]
-      : candidates.where((n) => n.context != null && _insideScrollable(n.context!, scrollable!)).toList();
-  final more = pos != null && (down ? pos.extentAfter > 1 : pos.extentBefore > 1);
-  if (pos != null && inSame.isEmpty && more && axisDirectionToAxis(scrollable!.axisDirection) == Axis.vertical) {
+      : candidates
+          .where((n) =>
+              n.context != null && _insideScrollable(n.context!, scrollable))
+          .toList();
+  final more =
+      pos != null && (down ? pos.extentAfter > 1 : pos.extentBefore > 1);
+  if (pos != null &&
+      inSame.isEmpty &&
+      more &&
+      axisDirectionToAxis(scrollable!.axisDirection) == Axis.vertical) {
     final step = pos.viewportDimension * 0.45 * (down ? 1 : -1);
     tvScrollThen(pos, pos.pixels + step, () {
       if (current.hasPrimaryFocus) tvMoveVertically(current, down: down);
@@ -694,21 +777,29 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
   }
   if (candidates.isEmpty) return false;
   final back = _vFrom;
-  if (identical(_vTo, current) && _vDown != down && back != null && candidates.contains(back)) {
+  if (identical(_vTo, current) &&
+      _vDown != down &&
+      back != null &&
+      candidates.contains(back)) {
     _vFrom = current;
     _vTo = back;
     _vDown = down;
     back.requestFocus();
     return true;
   }
-  double gap(FocusNode n) => down ? n.rect.top - cur.bottom : cur.top - n.rect.bottom;
+  double gap(FocusNode n) =>
+      down ? n.rect.top - cur.bottom : cur.top - n.rect.bottom;
   final nearest = candidates.reduce((a, b) => gap(a) <= gap(b) ? a : b);
   // La riga: se l'elemento più vicino sta in una riga riconosciuta, tutta
   // quella riga; altrimenti gli elementi alla stessa altezza.
   final key = tvRowKeyOf(nearest);
   final row = key != null
       ? candidates.where((n) => identical(tvRowKeyOf(n), key)).toList()
-      : candidates.where((n) => (n.rect.center.dy - nearest.rect.center.dy).abs() < nearest.rect.height / 2).toList();
+      : candidates
+          .where((n) =>
+              (n.rect.center.dy - nearest.rect.center.dy).abs() <
+              nearest.rect.height / 2)
+          .toList();
   // Prima la scheda attiva, poi l'ultimo elemento usato nella riga.
   FocusNode? target = row.where(_isSelected).firstOrNull;
   if (target == null && key != null) {
@@ -717,7 +808,8 @@ bool tvMoveVertically(FocusNode current, {required bool down}) {
   }
   if (target == null) {
     final cx = cur.center.dx;
-    row.sort((a, b) => (a.rect.center.dx - cx).abs().compareTo((b.rect.center.dx - cx).abs()));
+    row.sort((a, b) =>
+        (a.rect.center.dx - cx).abs().compareTo((b.rect.center.dx - cx).abs()));
     target = row.first;
   }
   _vFrom = current;
@@ -736,11 +828,13 @@ class TvDirectionalFocusAction extends DirectionalFocusAction {
   void invoke(DirectionalFocusIntent intent) {
     final p = primaryFocus;
     if (p != null &&
-        (intent.direction == TraversalDirection.up || intent.direction == TraversalDirection.down) &&
+        (intent.direction == TraversalDirection.up ||
+            intent.direction == TraversalDirection.down) &&
         p.context != null) {
       // Solo righe sopra/sotto. Nelle pagine che scorrono, se non c'è niente
       // (inizio o fine pagina) il focus resta dov'è, senza salti.
-      final moved = tvMoveVertically(p, down: intent.direction == TraversalDirection.down);
+      final moved = tvMoveVertically(p,
+          down: intent.direction == TraversalDirection.down);
       if (moved || Scrollable.maybeOf(p.context!) != null) return;
     }
     if (p != null &&
@@ -773,7 +867,9 @@ bool tvFocusFirstIn(FocusScopeNode scope) {
     final inAppBar = c.findAncestorWidgetOfExactType<AppBar>() != null;
     final b = inAppBar ? bestBar : best;
     // Prima la riga più in alto (con tolleranza), poi più a sinistra.
-    if (b == null || r.top < b.rect.top - 60 || ((r.top - b.rect.top).abs() <= 60 && r.left < b.rect.left)) {
+    if (b == null ||
+        r.top < b.rect.top - 60 ||
+        ((r.top - b.rect.top).abs() <= 60 && r.left < b.rect.left)) {
       if (inAppBar) {
         bestBar = n;
       } else {
@@ -789,7 +885,10 @@ bool tvFocusFirstIn(FocusScopeNode scope) {
 
 /// Azioni da passare a MaterialApp su TV.
 Map<Type, Action<Intent>>? tvActions() => TvMode.isTv
-    ? {...WidgetsApp.defaultActions, DirectionalFocusIntent: TvDirectionalFocusAction()}
+    ? {
+        ...WidgetsApp.defaultActions,
+        DirectionalFocusIntent: TvDirectionalFocusAction()
+      }
     : null;
 
 /// Sinistra/destra geometrico: solo elementi nella stessa riga (che si
@@ -801,12 +900,14 @@ bool tvMoveHorizontally(FocusNode current, {required bool left}) {
   FocusNode? best;
   var bestDist = double.infinity;
   for (final n in scope.traversalDescendants) {
-    if (identical(n, current) || n is FocusScopeNode || !n.canRequestFocus) continue;
+    if (identical(n, current) || n is FocusScopeNode || !n.canRequestFocus)
+      continue;
     final c = n.context;
     if (c == null || !c.mounted) continue;
     final r = n.rect;
     if (r.isEmpty) continue;
-    final overlap = (r.bottom < cur.bottom ? r.bottom : cur.bottom) - (r.top > cur.top ? r.top : cur.top);
+    final overlap = (r.bottom < cur.bottom ? r.bottom : cur.bottom) -
+        (r.top > cur.top ? r.top : cur.top);
     final minH = r.height < cur.height ? r.height : cur.height;
     if (overlap < minH * 0.5) continue;
     final d = left ? cur.left - r.right : r.left - cur.right;

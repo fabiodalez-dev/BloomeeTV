@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
@@ -255,6 +256,9 @@ class PluginBootstrapService {
           name: 'PluginBootstrap');
     }
 
+    for (final e in errors) {
+      debugPrint('PluginBootstrap: $e');
+    }
     if (errors.isEmpty) {
       // Ensure all installed plugins (the ones we just installed/updated)
       // are added to the auto-load list so they are actually used.

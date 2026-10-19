@@ -1,7 +1,7 @@
-import 'dart:io';
+import 'package:Bloomee/tv/services/tv_downloads.dart';
+import 'package:Bloomee/tv/services/tv_operations.dart';
 
 import 'package:Bloomee/blocs/downloader/cubit/downloader_cubit.dart';
-import 'package:http/http.dart' as http;
 import 'package:Bloomee/core/di/service_locator.dart';
 import 'package:Bloomee/core/models/exported.dart';
 import 'package:Bloomee/plugins/utils/media_id.dart';
@@ -31,8 +31,8 @@ Future<void> showDownloadMenu(
   final lidarrAlbums = !allowLidarr
       ? const <({String artist, String album})>[]
       : album.isNotEmpty
-      ? [(artist: artist, album: album)]
-      : albumsOfTracks(listTracks ?? const [], fallbackTitle: listTitle);
+          ? [(artist: artist, album: album)]
+          : albumsOfTracks(listTracks ?? const [], fallbackTitle: listTitle);
   final choice = await showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -42,7 +42,9 @@ Future<void> showDownloadMenu(
         const SizedBox(width: 12),
         Expanded(
           child: Text(track?.title ?? name,
-              style: TvText.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: TvText.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
         ),
       ]),
       content: SizedBox(
@@ -51,8 +53,10 @@ Future<void> showDownloadMenu(
           if (lidarrAlbums.isNotEmpty)
             ListTile(
               autofocus: true,
-              leading: const Icon(Icons.cloud_download_rounded, color: TvColors.text),
-              title: const Text('Lidarr', style: TextStyle(color: TvColors.text)),
+              leading: const Icon(Icons.cloud_download_rounded,
+                  color: TvColors.text),
+              title:
+                  const Text('Lidarr', style: TextStyle(color: TvColors.text)),
               subtitle: Text(
                   lidarrAlbums.length == 1
                       ? 'Scarica l\'album "${lidarrAlbums.first.album}" sul server: poi lo trovi in La tua musica (Jellyfin)'
@@ -63,23 +67,32 @@ Future<void> showDownloadMenu(
           if (track != null)
             ListTile(
               autofocus: lidarrAlbums.isEmpty,
-              leading: const Icon(Icons.download_for_offline_rounded, color: TvColors.text),
-              title: const Text('Locale', style: TextStyle(color: TvColors.text)),
-              subtitle: const Text('Scarica il brano sul Chromecast, in Scaricati', style: TextStyle(color: TvColors.textDim)),
+              leading: const Icon(Icons.download_for_offline_rounded,
+                  color: TvColors.text),
+              title:
+                  const Text('Locale', style: TextStyle(color: TvColors.text)),
+              subtitle: const Text(
+                  'Scarica il brano sul Chromecast, in Scaricati',
+                  style: TextStyle(color: TvColors.textDim)),
               onTap: () => Navigator.pop(ctx, 'track'),
             ),
           if (albumTracks != null)
             ListTile(
               autofocus: lidarrAlbums.isEmpty && track == null,
-              leading: const Icon(Icons.library_music_rounded, color: TvColors.text),
-              title: const Text('Locale', style: TextStyle(color: TvColors.text)),
-              subtitle: Text('Scarica tutti i brani di "$name" sul Chromecast, in Scaricati', style: const TextStyle(color: TvColors.textDim)),
+              leading:
+                  const Icon(Icons.library_music_rounded, color: TvColors.text),
+              title:
+                  const Text('Locale', style: TextStyle(color: TvColors.text)),
+              subtitle: Text(
+                  'Scarica tutti i brani di "$name" sul Chromecast, in Scaricati',
+                  style: const TextStyle(color: TvColors.textDim)),
               onTap: () => Navigator.pop(ctx, 'album'),
             ),
         ]),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
+        TextButton(
+            onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
       ],
     ),
   );
@@ -88,12 +101,15 @@ Future<void> showDownloadMenu(
   switch (choice) {
     case 'lidarr':
       if (lidarrAlbums.length == 1) {
-        await downloadAlbumWithLidarr(context, artist: lidarrAlbums.first.artist, album: lidarrAlbums.first.album);
+        await downloadAlbumWithLidarr(context,
+            artist: lidarrAlbums.first.artist, album: lidarrAlbums.first.album);
       } else {
         await _requestManyWithLidarr(lidarrAlbums);
       }
     case 'track':
-      await downloader.downloadSong(track!);
+      if (!await _downloadTvTrack(downloader, track!))
+        SnackbarService.showMessage(
+            'Download non riuscito: apri Centro operazioni');
     case 'album':
       SnackbarService.showMessage('Preparo i brani di "$name"…');
       final list = await albumTracks!();
@@ -104,92 +120,80 @@ Future<void> showDownloadMenu(
 
 /// Scarica tutti i brani (di un album o una playlist) sul dispositivo con il
 /// download di Bloomee: finiscono in "Scaricati".
-Future<void> downloadTracksToDevice(BuildContext context, List<Track> tracks, String title) async {
+Future<void> downloadTracksToDevice(
+    BuildContext context, List<Track> tracks, String title) async {
   if (tracks.isEmpty) {
     SnackbarService.showMessage('Non trovo i brani di "$title".');
     return;
   }
   final downloader = context.read<DownloaderCubit>();
-  SnackbarService.showMessage('Scarico ${tracks.length} brani di "$title" sul Chromecast: li trovi in Scaricati.',
+  SnackbarService.showMessage(
+      'Scarico ${tracks.length} brani di "$title" sul Chromecast: li trovi in Scaricati.',
       duration: const Duration(seconds: 5));
   var failed = 0;
   for (final t in List.of(tracks)) {
-    if (t.id.startsWith('$kJellyfinPluginId::')) {
-      if (!await _downloadJellyfinTrack(downloader, t)) failed++;
-    } else {
-      await downloader.downloadSong(t, showSnackbar: false);
-    }
+    if (!await _downloadTvTrack(downloader, t)) failed++;
   }
-  if (failed > 0) SnackbarService.showMessage('$failed brani di "$title" non sono stati scaricati.');
+  if (failed > 0)
+    SnackbarService.showMessage(
+        '$failed brani di "$title" non sono stati scaricati.');
 }
 
 /// I brani Jellyfin non passano dal downloader dei plugin: scarico il file
 /// originale dal server e lo registro in "Scaricati".
-Future<bool> _downloadJellyfinTrack(DownloaderCubit downloader, Track t) async {
-  final jf = TvConfig.jellyfin;
-  if (jf == null) return false;
-  if (downloader.isDownloaded(t.id)) return true;
-  final id = t.id.substring('$kJellyfinPluginId::'.length);
-  try {
-    final res = await http.Client().send(http.Request('GET', Uri.parse(jf.streamUrl(id))));
-    if (res.statusCode != 200) return false;
-    final type = res.headers['content-type'] ?? '';
-    final ext = switch (type) {
-      _ when type.contains('flac') => 'flac',
-      _ when type.contains('mpeg') => 'mp3',
-      _ when type.contains('ogg') => 'ogg',
-      _ when type.contains('opus') => 'opus',
-      _ when type.contains('wav') => 'wav',
-      _ => 'm4a',
-    };
-    final dir = await downloader.downloadDirectory();
-    final artist = t.artists.isEmpty ? '' : '${t.artists.first.name} - ';
-    final safe = '$artist${t.title}'.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-    final file = File('${dir.path}/$safe.$ext');
-    await res.stream.pipe(file.openWrite());
-    await downloader.registerExternalDownload(t, file.path);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
+Future<bool> _downloadTvTrack(DownloaderCubit downloader, Track track) =>
+    TvDownloads.save(track,
+        directory: downloader.downloadDirectory,
+        register: downloader.registerExternalDownload);
 
 /// Album distinti (artista principale, titolo) dei brani di una playlist. Se
 /// i brani non dicono l'album ma sono tutti dello stesso artista, uso il
 /// titolo della playlist ripulito (es. "Green Day American Idiot (Deluxe)").
-List<({String artist, String album})> albumsOfTracks(List<Track> tracks, {String? fallbackTitle}) {
+List<({String artist, String album})> albumsOfTracks(List<Track> tracks,
+    {String? fallbackTitle}) {
   final seen = <String>{};
   final out = <({String artist, String album})>[];
   for (final t in tracks) {
     final al = t.album?.title.trim() ?? '';
     final ar = t.artists.isNotEmpty ? t.artists.first.name : '';
     if (al.isEmpty || ar.isEmpty) continue;
-    if (seen.add('${ar.toLowerCase()}|${al.toLowerCase()}')) out.add((artist: ar, album: al));
+    if (seen.add('${ar.toLowerCase()}|${al.toLowerCase()}'))
+      out.add((artist: ar, album: al));
   }
   if (out.isEmpty && fallbackTitle != null && tracks.isNotEmpty) {
-    final artists = {for (final t in tracks) if (t.artists.isNotEmpty) t.artists.first.name};
+    final artists = {
+      for (final t in tracks)
+        if (t.artists.isNotEmpty) t.artists.first.name
+    };
     if (artists.length == 1) {
       final ar = artists.first;
-      var al = fallbackTitle.replaceAll(RegExp(r'\s*[\(\[][^\)\]]*[\)\]]'), '').trim();
-      if (al.toLowerCase().startsWith(ar.toLowerCase())) al = al.substring(ar.length).replaceFirst(RegExp(r'^[\s\-–:]+'), '');
+      var al = fallbackTitle
+          .replaceAll(RegExp(r'\s*[\(\[][^\)\]]*[\)\]]'), '')
+          .trim();
+      if (al.toLowerCase().startsWith(ar.toLowerCase()))
+        al = al.substring(ar.length).replaceFirst(RegExp(r'^[\s\-–:]+'), '');
       if (al.isNotEmpty) out.add((artist: ar, album: al));
     }
   }
   return out;
 }
 
-Future<void> _requestManyWithLidarr(List<({String artist, String album})> albums) async {
+Future<void> _requestManyWithLidarr(
+    List<({String artist, String album})> albums) async {
   final client = TvConfig.lidarr;
   if (client == null) {
-    SnackbarService.showMessage('Lidarr non configurato: apri Impostazioni nel menu a sinistra',
+    SnackbarService.showMessage(
+        'Lidarr non configurato: apri Impostazioni nel menu a sinistra',
         duration: const Duration(seconds: 4));
     return;
   }
-  SnackbarService.showMessage('Chiedo ${albums.length} album a Lidarr… (può volerci qualche minuto)',
+  SnackbarService.showMessage(
+      'Chiedo ${albums.length} album a Lidarr… (può volerci qualche minuto)',
       duration: const Duration(seconds: 6));
   var ok = 0, already = 0, missing = 0;
   for (final a in albums) {
-    final r = await client.requestAlbum(artist: a.artist, album: a.album);
+    final r =
+        await requestTrackedLidarr(client, artist: a.artist, album: a.album);
     switch (r.status) {
       case LidarrRequestStatus.requested:
         ok++;
@@ -217,7 +221,8 @@ Future<List<Track>> pluginAlbumTracks(AlbumSummary a) async {
         ContentResolverCommand.getAlbumDetails(id: localIdOf(a.id) ?? a.id),
       ),
     );
-    return r.maybeWhen(albumDetails: (d) => d.tracks.items, orElse: () => <Track>[]);
+    return r.maybeWhen(
+        albumDetails: (d) => d.tracks.items, orElse: () => <Track>[]);
   } catch (_) {
     return [];
   }
@@ -248,13 +253,16 @@ Future<void> downloadAlbumWithLidarr(
   );
   if (preview == null || !context.mounted) return;
 
-  SnackbarService.showMessage('Richiesta a Lidarr in corso… (può volerci un minuto)', duration: const Duration(seconds: 6));
-  final r = await client.requestAlbum(artist: artist, album: album);
+  SnackbarService.showMessage(
+      'Richiesta a Lidarr in corso… (può volerci un minuto)',
+      duration: const Duration(seconds: 6));
+  final r = await requestTrackedLidarr(client,
+      artist: artist, album: album, expectedAlbumId: preview.albumId);
   final name = '${r.artistName ?? artist} – ${r.albumTitle ?? album}';
   switch (r.status) {
     case LidarrRequestStatus.requested:
       SnackbarService.showMessage(
-          'Download avviato: $name. Comparirà in Jellyfin a fine download.',
+          'Richiesta inviata: $name. Lidarr deve ancora trovare, scaricare e importare l’album.',
           duration: const Duration(seconds: 5));
     case LidarrRequestStatus.alreadyMonitored:
       SnackbarService.showMessage(
@@ -346,4 +354,29 @@ class _LookupDialog extends StatelessWidget {
       },
     );
   }
+}
+
+Future<LidarrRequestResult> requestTrackedLidarr(LidarrClient client,
+    {required String artist,
+    required String album,
+    String? expectedAlbumId}) async {
+  final id = 'lidarr:$artist|$album';
+  final result = await TvOperations.instance.run<LidarrRequestResult>(
+      id, {'source': 'lidarr', 'title': album, 'artist': artist}, () async {
+    final r = await client.requestAlbum(
+        artist: artist, album: album, expectedAlbumId: expectedAlbumId);
+    await TvOperations.instance.update(id, {
+      'state': switch (r.status) {
+        LidarrRequestStatus.alreadyPresent => 'pronto',
+        LidarrRequestStatus.requested ||
+        LidarrRequestStatus.alreadyMonitored =>
+          'richiesto',
+        _ => 'errore'
+      },
+      'error': r.message ?? ''
+    });
+    return r;
+  });
+  return result ??
+      const LidarrRequestResult(LidarrRequestStatus.alreadyMonitored);
 }

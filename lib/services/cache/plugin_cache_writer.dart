@@ -20,6 +20,8 @@ class PluginCacheWriter {
 
   final _pending = <String, _WriteEntry>{};
   Timer? _flushTimer;
+  Future<void> _writes = Future.value();
+  bool _closed = false;
 
   static const _flushDelay = Duration(seconds: 2);
   static const _maxPending = 10;
@@ -31,6 +33,7 @@ class PluginCacheWriter {
   /// [blob] is the serialised JSON string. [ttl] optionally sets expiry.
   /// If the same key is scheduled again before flush, the last write wins.
   void schedule(String key, String blob, {Duration? ttl}) {
+    if (_closed) return;
     _pending[key] = _WriteEntry(blob, ttl);
 
     // Safety cap: flush synchronously once the batch is full.
@@ -51,25 +54,27 @@ class PluginCacheWriter {
   }
 
   void dispose() {
+    _closed = true;
     _flushTimer?.cancel();
   }
 
-  Future<void> _flush() async {
-    if (_pending.isEmpty) return;
-
+  Future<void> _flush() {
+    if (_pending.isEmpty) return _writes;
     final batch = Map<String, _WriteEntry>.from(_pending);
     _pending.clear();
-
-    try {
-      await _cacheDao.putCacheBatch({
-        for (final e in batch.entries)
-          e.key: (value: e.value.blob, ttl: e.value.ttl),
-      });
-    } catch (e, st) {
-      log('PluginCacheWriter flush failed: $e',
-          stackTrace: st, name: 'PluginCacheWriter');
-      // Non-fatal — next write attempt will overwrite.
-    }
+    final write = _writes.then((_) async {
+      try {
+        await _cacheDao.putCacheBatch({
+          for (final e in batch.entries)
+            e.key: (value: e.value.blob, ttl: e.value.ttl)
+        });
+      } catch (e, stack) {
+        log('Plugin cache flush postponed',
+            stackTrace: stack, name: 'PluginCacheWriter');
+      }
+    });
+    _writes = write;
+    return write;
   }
 }
 

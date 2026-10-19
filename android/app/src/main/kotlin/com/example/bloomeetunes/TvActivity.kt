@@ -24,6 +24,33 @@ class TvActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        TvCastBridge.attach(MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "bloomee_tv/cast"))
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "bloomee_tv/storage").setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "freeBytes" -> result.success(android.os.StatFs(call.argument<String>("path") ?: filesDir.path).availableBytes)
+                    else -> result.notImplemented()
+                }
+            } catch (_: Exception) { result.error("storage", "Spazio non leggibile", null) }
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "bloomee_tv/device").setMethodCallHandler { call, result ->
+            if (call.method == "baseBuild") {
+                @Suppress("DEPRECATION")
+                val info = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+                result.success(info.metaData.getInt("bloomee_tv.BASE_VERSION_CODE").toString())
+            } else result.notImplemented()
+        }
+        val vault = TvSecureStore(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "bloomee_tv/secure").setMethodCallHandler { call, result ->
+            try {
+                val profile = call.argument<String>("profile") ?: "default"
+                when (call.method) {
+                    "read" -> result.success(vault.read(profile))
+                    "write" -> { vault.write(profile, call.argument<String>("value") ?: "{}"); result.success(null) }
+                    else -> result.notImplemented()
+                }
+            } catch (_: Exception) { result.error("secure_storage", "Archivio credenziali non disponibile", null) }
+        }
         val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "bloomee_tv/voice")
         channel = ch
         ch.setMethodCallHandler { call, result ->
@@ -148,6 +175,10 @@ class TvActivity : AudioServiceActivity() {
         }
         r.startListening(intent)
     }
+
+    override fun onStart() { super.onStart(); TvCastBridge.start(intent) }
+    override fun onStop() { TvCastBridge.background(); super.onStop() }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); TvCastBridge.handleIntent(intent) }
 
     override fun onDestroy() {
         recognizer?.destroy()

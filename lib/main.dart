@@ -1,5 +1,12 @@
+import 'package:Bloomee/tv/services/tv_image_privacy.dart';
+import 'package:Bloomee/tv/services/tv_operations.dart';
+import 'package:Bloomee/tv/services/tv_cast_service.dart';
 import 'dart:async';
 import 'dart:io' as io;
+import 'package:Bloomee/tv/services/tv_workspace.dart';
+import 'package:Bloomee/tv/services/tv_catalog_cache.dart';
+import 'package:Bloomee/tv/services/tv_pairing_server.dart';
+import 'package:Bloomee/tv/services/tv_diagnostics.dart';
 import 'package:Bloomee/blocs/downloader/cubit/downloader_cubit.dart';
 import 'package:Bloomee/blocs/global_events/global_events_cubit.dart';
 import 'package:Bloomee/blocs/internet_connectivity/cubit/connectivity_cubit.dart';
@@ -155,17 +162,160 @@ Future<void> setupPlayerCubit() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GestureBinding.instance.resamplingEnabled = true;
-  MediaKit.ensureInitialized();
   await TvMode.init();
-  await bootstrapApp();
-  if (TvMode.isTv) {
-    await TvConfig.load();
-    await TvConfig.importFromFile();
+  runApp(const _AppRuntime());
+}
+
+class _AppRuntime extends StatefulWidget {
+  const _AppRuntime();
+  @override
+  State<_AppRuntime> createState() => _AppRuntimeState();
+}
+
+class _AppRuntimeState extends State<_AppRuntime> {
+  bool _ready = false;
+  Object? _error;
+  int _epoch = 0;
+  @override
+  void initState() {
+    super.initState();
+    _start();
   }
-  setHighRefreshRate();
-  await setupPlayerCubit();
-  DiscordService.initialize();
-  runApp(const TvRoot(child: MyApp()));
+
+  Future<void> _start() async {
+    setState(() {
+      _error = null;
+      _ready = false;
+    });
+    try {
+      MediaKit.ensureInitialized();
+      await bootstrapApp();
+      if (TvMode.isTv) {
+        TvConfig.profileId = TvProfiles.instance.selectedId;
+        await TvConfig.load();
+        await TvOperations.instance.reconcileInterrupted();
+        await TvConfig.importFromFile();
+        TvProfiles.instance.onSwitch = _switch;
+      }
+      await setupPlayerCubit();
+      if (TvMode.isTv)
+        await TvCastService.initialize((id, position) async {
+          var track = await TrackDAO(DBProvider.db).getTrackByMediaId(id);
+          if (track == null) {
+            final uri = Uri.tryParse(id);
+            final host = uri?.host.toLowerCase();
+            if (uri?.scheme == 'https' &&
+                [
+                  'youtube.com',
+                  'www.youtube.com',
+                  'music.youtube.com',
+                  'youtu.be'
+                ].contains(host)) {
+              track = (await SharedUrlResolverService.resolveYoutubeVideo(id))
+                  .track;
+            }
+          }
+          if (track == null) throw StateError('Contenuto Cast non supportato');
+          final player = bloomeePlayerCubit.bloomeePlayer;
+          await player.updateQueueTracks([track], doPlay: true);
+          if (position > Duration.zero) await player.seek(position);
+        });
+      DiscordService.initialize();
+      if (mounted) setState(() => _ready = true);
+    } catch (e) {
+      TvDiagnostics.instance.record('Avvio', e);
+      if (mounted) setState(() => _error = e);
+    }
+  }
+
+  Future<void> _switch(TvProfile profile) async {
+    final old = TvProfiles.instance.selected;
+    final player = bloomeePlayerCubit.bloomeePlayer;
+    final routeContext = GlobalRoutes.globalRouterKey.currentContext;
+    final downloader = routeContext?.read<DownloaderCubit>();
+    await TvOperations.instance.cancelAll();
+    await downloader?.prepareProfileSwitch();
+    setState(() {
+      _ready = false;
+      _error = null;
+    });
+    await WidgetsBinding.instance.endOfFrame;
+    try {
+      await tvPairing.close();
+      await player.prepareProfileSwitch();
+      await TvImagePrivacy.clear();
+      await ServiceLocator.prepareProfileSwitch();
+      await TvConfig.flush();
+      await TvWorkspace.instance.flush();
+      await DBProvider.switchDirectory(
+          TvProfiles.instance.directoryFor(profile.id).path);
+      await TvWorkspace.instance
+          .open(TvProfiles.instance.directoryFor(profile.id));
+      await ServiceLocator.resetForProfile();
+      TvConfig.profileId = profile.id;
+      await TvConfig.load();
+      TvCatalogCache.instance.resetSession();
+      TvDiagnostics.instance.clear();
+      await player.reloadProfile();
+      await setupPlayerCubit();
+      GlobalRoutes.globalRouter.go('/Explore');
+      if (old.guest) await TvConfig.secretStore.write(old.id, {});
+      if (mounted)
+        setState(() {
+          _epoch++;
+          _ready = true;
+        });
+    } catch (e) {
+      TvDiagnostics.instance.record('Cambio profilo', e);
+      await DBProvider.switchDirectory(
+          TvProfiles.instance.directoryFor(old.id).path);
+      await TvWorkspace.instance.open(TvProfiles.instance.directoryFor(old.id));
+      await ServiceLocator.resetForProfile();
+      TvConfig.profileId = old.id;
+      await TvConfig.load();
+      await player.reloadProfile();
+      await setupPlayerCubit();
+      if (mounted)
+        setState(() {
+          _epoch++;
+          _ready = true;
+        });
+      rethrow;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready)
+      return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: Default_Theme().defaultThemeData,
+          home: Scaffold(
+              body: Center(
+                  child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        const Text('Bloomee TV',
+                            style: TextStyle(fontSize: 32)),
+                        const SizedBox(height: 20),
+                        if (_error == null) ...[
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          const Text('Preparo musica e profilo…')
+                        ] else ...[
+                          const Text(
+                              'Avvio non riuscito. I dati sono conservati.'),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                              autofocus: true,
+                              onPressed: _start,
+                              child: const Text('Riprova'))
+                        ],
+                      ])))));
+    return ListenableBuilder(
+        listenable: TvWorkspace.instance,
+        builder: (_, __) => TvRoot(child: MyApp(key: ValueKey(_epoch))));
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -196,12 +346,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     // Check once at startup; DBProvider.appSuppDir is set by bootstrapApp().
-    _migrationPending = legacy_migration.needsMigration(
-      DBProvider.appSuppDir,
-      DBProvider.appDocDir,
-    );
+    _migrationPending =
+        (!TvMode.isTv || TvProfiles.instance.selectedId == 'default') &&
+            legacy_migration.needsMigration(
+              DBProvider.appSuppDir,
+              DBProvider.appDocDir,
+            );
 
-    _onboardingPending = !OnboardingService.onboardingDone;
+    _onboardingPending = !TvMode.isTv && !OnboardingService.onboardingDone;
     _pluginBootstrapPending = !PluginBootstrapService.bootstrapDone;
     //--------------------------------------------------------------------
 
@@ -212,6 +364,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(tvPairing.close());
+    }
     if (state == AppLifecycleState.resumed) {
       unawaited(_ensurePlayerHealthyOnResume());
       // Check for plugin updates when app resumes (30-min cooldown enforced).
@@ -374,7 +530,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
         BlocProvider(
             create: (context) => TimerBloc(
-                ticker: const Ticker(), bloomeePlayer: bloomeePlayerCubit)),
+                ticker: const Ticker(),
+                timer: bloomeePlayerCubit.bloomeePlayer.sleepTimer)),
         BlocProvider(
           create: (context) => ConnectivityCubit(),
           lazy: false,
@@ -496,10 +653,53 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           const Breakpoint(
                               start: 1921, end: double.infinity, name: '4K'),
                         ],
-                        child: GlobalEventListener(
-                          navigatorKey: GlobalRoutes.globalRouterKey,
-                          child: child!,
-                        ),
+                        child: MediaQuery(
+                            data: MediaQuery.of(context).copyWith(
+                                textScaler: TextScaler.linear(((TvWorkspace
+                                                    .instance['textScale']
+                                                as num? ??
+                                            1)
+                                        .toDouble()
+                                        .clamp(1, 1.5)) *
+                                    MediaQuery.textScalerOf(context).scale(16) /
+                                    16),
+                                disableAnimations:
+                                    MediaQuery.of(context).disableAnimations ||
+                                        TvWorkspace.instance['reduceMotion'] ==
+                                            true,
+                                highContrast: MediaQuery.of(context)
+                                        .highContrast ||
+                                    TvWorkspace.instance['highContrast'] == true),
+                            child: GlobalEventListener(
+                              navigatorKey: GlobalRoutes.globalRouterKey,
+                              child: TvWorkspace.instance['highContrast'] ==
+                                      true
+                                  ? ColorFiltered(
+                                      colorFilter: const ColorFilter.matrix([
+                                        1.2,
+                                        0,
+                                        0,
+                                        0,
+                                        -16,
+                                        0,
+                                        1.2,
+                                        0,
+                                        0,
+                                        -16,
+                                        0,
+                                        0,
+                                        1.2,
+                                        0,
+                                        -16,
+                                        0,
+                                        0,
+                                        0,
+                                        1,
+                                        0
+                                      ]),
+                                      child: child!)
+                                  : child!,
+                            )),
                       ),
                       scaffoldMessengerKey: SnackbarService.messengerKey,
                       routerConfig: GlobalRoutes.globalRouter,

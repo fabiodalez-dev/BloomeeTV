@@ -318,7 +318,7 @@ class QueueManager {
 
   /// Remove a track by queue index.
   void removeTrackAt(int index) {
-    if (index >= _queue.value.length) return;
+    if (index < 0 || index >= _queue.value.length) return;
 
     final newQueue = List<Track>.from(_queue.value)..removeAt(index);
     _queue.add(newQueue);
@@ -355,6 +355,8 @@ class QueueManager {
 
   /// Move a track from one position to another.
   void moveTrack(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= length || newIndex < 0 || newIndex > length)
+      return;
     final queue = List<Track>.from(_queue.value);
     if (oldIndex < newIndex) newIndex--;
     final item = queue.removeAt(oldIndex);
@@ -388,6 +390,37 @@ class QueueManager {
     }
   }
 
+  /// Applies an editor snapshot atomically. Each origin identifies an occurrence
+  /// in [expected], so two identical tracks cannot steal the playing position.
+  /// A -1 origin represents a newly inserted/restored occurrence.
+  /// Returns false when the currently selected occurrence was removed.
+  bool applyEdit(List<Track> expected, List<Track> next, List<int> origins) {
+    if (expected.length != length ||
+        List.generate(length, (i) => i)
+            .any((i) => !identical(expected[i], tracks[i]))) {
+      throw StateError('La coda è cambiata. Ricaricala prima di modificarla.');
+    }
+    final seen = <int>{};
+    if (origins.length != next.length ||
+        List.generate(origins.length, (i) => i).any((i) {
+          final origin = origins[i];
+          return origin < -1 ||
+              origin >= expected.length ||
+              (origin >= 0 &&
+                  (!seen.add(origin) || !identical(next[i], expected[origin])));
+        })) {
+      throw ArgumentError('Mappa delle posizioni non valida');
+    }
+    final selected = origins.indexOf(_currentIndex);
+    _currentIndex = selected < 0 ? 0 : selected;
+    // An explicit user order is the playback order from this point onward.
+    shuffleMode.add(false);
+    _shuffleList = [];
+    _shuffleIndex = 0;
+    _queue.add(List<Track>.unmodifiable(next));
+    return selected >= 0;
+  }
+
   /// Clear all tracks from the queue, keeping only the currently playing
   /// track so playback does not stop abruptly.
   void clearQueue() {
@@ -409,10 +442,14 @@ class QueueManager {
     final deduped =
         tracks.where((t) => seenIds.add(t.id)).toList(growable: false);
     _queue.add(deduped);
+    final requested =
+        tracks.isEmpty ? null : tracks[startIndex.clamp(0, tracks.length - 1)];
     _currentIndex =
-        startIndex.clamp(0, deduped.isEmpty ? 0 : deduped.length - 1);
+        requested == null ? 0 : deduped.indexWhere((t) => t.id == requested.id);
     if (shuffleMode.value && deduped.isNotEmpty) {
-      _shuffleList = generateRandomIndices(deduped.length);
+      _shuffleList = generateRandomIndices(deduped.length)
+        ..remove(_currentIndex);
+      _shuffleList.insert(0, _currentIndex);
       _shuffleIndex = 0;
     } else {
       _shuffleList = [];
@@ -458,8 +495,12 @@ class QueueManager {
   /// [tracksStream], and eagerly in [onTaskRemoved] as a last-chance save.
   Future<void> persistQueueState() async {
     final tracks = _queue.value;
-    if (tracks.isEmpty) return;
     try {
+      if (tracks.isEmpty) {
+        await SettingsDAO(DBProvider.db)
+            .removeSettingStr(SettingKeys.lastQueueState);
+        return;
+      }
       // Ensure all tracks exist in TrackDAO (ephemeral tracks from search
       // results or intent handling might not have been saved yet).
       final trackDao = TrackDAO(DBProvider.db);
@@ -508,9 +549,8 @@ class QueueManager {
       }
       if (tracks.isEmpty) return false;
 
-      final idx = (data['currentIndex'] as int?)
-              ?.clamp(0, tracks.length - 1) ??
-          0;
+      final idx =
+          (data['currentIndex'] as int?)?.clamp(0, tracks.length - 1) ?? 0;
       _isRestoring = true;
       loadTracks(tracks, idx: idx, playlistName: data['queueTitle'] ?? 'Queue');
       _isRestoring = false;

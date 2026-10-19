@@ -1,5 +1,9 @@
+import 'package:Bloomee/tv/services/tv_artwork_server.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
+import 'package:Bloomee/tv/services/tv_workspace.dart';
 import 'dart:developer';
 import 'dart:async';
+import 'package:Bloomee/services/player/sleep_timer.dart';
 import 'dart:convert';
 
 import 'package:Bloomee/core/adapters/track_adapter.dart';
@@ -87,6 +91,9 @@ class BloomeeMusicPlayer extends BaseAudioHandler
   StreamSubscription? _completionSub;
   StreamSubscription? _errorSub;
   StreamSubscription? _queueSyncSub;
+  StreamSubscription? _durationMetadataSub;
+  final _artworkServer = TvArtworkServer();
+  int _mediaGeneration = 0;
   StreamSubscription? _positionSuccessSub;
   StreamSubscription<AudioInterruptionEvent>? _audioInterruptionSub;
   StreamSubscription<void>? _audioNoisySub;
@@ -112,6 +119,10 @@ class BloomeeMusicPlayer extends BaseAudioHandler
   @override
   BehaviorSubject<String> get queueTitle => _queueManager.queueTitle;
 
+  late final SleepTimer sleepTimer = SleepTimer(
+      stop: () => stop(cancelSleep: false),
+      setVolume: (v) => engine.setVolume(v),
+      volume: () => engine.volume);
   Track _currentTrack = trackNull;
   Track get currentTrackInfo => _currentTrack;
   List<Track> get queueTracks => List<Track>.unmodifiable(_queueManager.tracks);
@@ -124,6 +135,7 @@ class BloomeeMusicPlayer extends BaseAudioHandler
     _initEngine();
     _initModules();
     _initSubscriptions();
+    sleepTimer.addListener(_syncSleepBoundary);
     _setupInterruptionListeners();
     // Engine settings (EQ, crossfade) restore happens async — acceptable
     // because the first play() will work with defaults until restore completes.
@@ -273,11 +285,18 @@ class BloomeeMusicPlayer extends BaseAudioHandler
     } catch (_) {}
   }
 
+  void _syncSleepBoundary() {
+    unawaited(engine.setSleepBoundaryActive(
+        sleepTimer.mode == SleepMode.track ||
+            sleepTimer.mode == SleepMode.album));
+  }
+
   // ─── Engine Settings Restore ───────────────────────────────────────────────
 
   Future<void> _restoreEngineSettings() async {
     try {
       final dao = SettingsDAO(DBProvider.db);
+      await engine.setLoudnessEnabled(TvWorkspace.instance['loudness'] == true);
 
       final cfStr = await dao.getSettingStr(SettingKeys.crossfadeDuration);
       engine.crossfadeDuration =
@@ -346,6 +365,14 @@ class BloomeeMusicPlayer extends BaseAudioHandler
   // ─── Subscriptions ─────────────────────────────────────────────────────────
 
   void _initSubscriptions() {
+    _durationMetadataSub = engine.durationStream.distinct().listen((duration) {
+      final item = mediaItem.value;
+      if (duration > Duration.zero &&
+          item != null &&
+          item.id == _currentTrack.id &&
+          item.duration != duration)
+        mediaItem.add(item.copyWith(duration: duration));
+    });
     // Combine engine state signals into a single broadcast.
     _engineStateSub = Rx.combineLatest4(
       engine.stateStream,
@@ -361,6 +388,13 @@ class BloomeeMusicPlayer extends BaseAudioHandler
     // Mark a track as successfully playing only once we see real position
     // advancement — guards circuit breaker against false positives.
     _positionSuccessSub = engine.positionStream.listen((pos) {
+      if (engine.playing && engine.duration > Duration.zero) {
+        final next = _queueManager.peekNext(loopMode: loopMode.value);
+        unawaited(sleepTimer.tick(
+            trackRemaining: engine.duration - pos,
+            endOfAlbum: next?.album?.id != currentTrackInfo.album?.id ||
+                !_queueManager.hasNext()));
+      }
       if (pos > Duration.zero &&
           engine.state == EngineState.ready &&
           engine.playing) {
@@ -380,7 +414,7 @@ class BloomeeMusicPlayer extends BaseAudioHandler
     });
 
     _queueSyncSub = _queueManager.tracksStream.listen((tracks) {
-      queue.add(tracks.map(trackToMediaItem).toList());
+      queue.add(tracks.map(_sessionItem).toList());
       // Don't persist during restore — we'd just write back what we read.
       if (_queueManager.isRestoring) return;
       // Throttle persistence writes — queue mutations can fire in rapid bursts
@@ -448,9 +482,50 @@ class BloomeeMusicPlayer extends BaseAudioHandler
 
   Track get currentMedia => _queueManager.currentTrack ?? trackNull;
 
+  MediaItem _sessionItem(Track track, {Uri? remoteArtUri}) {
+    final art = safeTrackArtworkUri(track);
+    return trackToMediaItem(track,
+        artHeaders: TvConfig.artworkHeaders(art?.toString()),
+        remoteArtUri: remoteArtUri);
+  }
+
   void _updateCurrentTrack(Track track) {
     _currentTrack = track;
-    mediaItem.add(trackToMediaItem(track));
+    final generation = ++_mediaGeneration;
+    final item = _sessionItem(track);
+    mediaItem.add(item);
+    final art = item.artUri;
+    if (TvMode.isTv &&
+        art != null &&
+        (art.scheme == 'file' || item.artHeaders?.isNotEmpty == true)) {
+      unawaited(
+          _artworkServer.publish(art, headers: item.artHeaders).then((remote) {
+        if (remote != null && !_isDisposed && generation == _mediaGeneration) {
+          final duration = mediaItem.value?.duration;
+          mediaItem.add(_sessionItem(track, remoteArtUri: remote)
+              .copyWith(duration: duration));
+        }
+      }));
+    }
+  }
+
+  Future<void> prepareProfileSwitch() async {
+    EasyThrottle.cancel('persist_queue');
+    await sleepTimer.cancel();
+    await _artworkServer.close();
+    await stop();
+    await _queueManager.persistQueueState();
+    await _cleanup();
+    queue.add([]);
+    mediaItem.add(null);
+    _currentTrack = trackNull;
+  }
+
+  Future<void> reloadProfile() async {
+    await revive();
+    await _restoreEngineSettings();
+    await _restoreLastSession();
+    syncPublicState();
   }
 
   // ─── Public Playback Controls ─────────────────────────────────────────────
@@ -480,6 +555,7 @@ class BloomeeMusicPlayer extends BaseAudioHandler
   @override
   Future<void> pause() async {
     if (_isDisposed) return;
+    _errorHandler.cancelPendingRetry();
     // Manual pause clears any pending auto-resume.
     _shouldResumeAfterInterruption = false;
     await engine.pause();
@@ -504,7 +580,10 @@ class BloomeeMusicPlayer extends BaseAudioHandler
   }
 
   @override
-  Future<void> stop() async {
+  Future<void> stop({bool cancelSleep = true}) async {
+    if (cancelSleep) await sleepTimer.cancel();
+    _mediaGeneration++;
+    await _artworkServer.close();
     _errorHandler.resetCircuitBreaker();
     _shouldResumeAfterInterruption = false;
     _playCompleter?.operation.cancel();
@@ -750,10 +829,16 @@ class BloomeeMusicPlayer extends BaseAudioHandler
   // ─── Completion / Auto-Next ────────────────────────────────────────────────
 
   void _onTrackCompleted() {
-    if (loopMode.value == LoopMode.one || _isAdvancing) return;
+    if ((loopMode.value == LoopMode.one && !engine.sleepBoundaryActive) ||
+        _isAdvancing) return;
     _isAdvancing = true;
     Future.microtask(() async {
       try {
+        final upcoming = _queueManager.peekNext(loopMode: loopMode.value);
+        if (await sleepTimer.beforeAdvance(
+            nextTrackId: upcoming?.id,
+            nextAlbumId: upcoming?.album?.id,
+            wrapped: !_queueManager.hasNext())) return;
         final advanced = _queueManager.advanceToNext(loopMode: loopMode.value);
         if (advanced) {
           final next = _queueManager.currentTrack;
@@ -863,7 +948,7 @@ class BloomeeMusicPlayer extends BaseAudioHandler
 
   void syncPublicState() {
     if (_isDisposed) return;
-    queue.add(_queueManager.tracks.map(trackToMediaItem).toList());
+    queue.add(_queueManager.tracks.map(_sessionItem).toList());
     final current = _queueManager.currentTrack;
     if (current != null) _updateCurrentTrack(current);
     _broadcastPlaybackState(
@@ -901,6 +986,11 @@ class BloomeeMusicPlayer extends BaseAudioHandler
   }
 
   Future<void> _internalSkipToNext() async {
+    final nextForTimer = _queueManager.peekNext(loopMode: loopMode.value);
+    if (await sleepTimer.beforeAdvance(
+        nextTrackId: nextForTimer?.id,
+        nextAlbumId: nextForTimer?.album?.id,
+        wrapped: !_queueManager.hasNext())) return;
     _isAdvancing = true;
     try {
       final advanced = _queueManager.advanceToNext(loopMode: loopMode.value);
@@ -1030,6 +1120,23 @@ class BloomeeMusicPlayer extends BaseAudioHandler
     }
   }
 
+  Future<void> editQueueTracks(
+      List<Track> expected, List<Track> next, List<int> origins) async {
+    final keptCurrent = _queueManager.applyEdit(expected, next, origins);
+    _clearPreloadedMarker();
+    await engine.clearPreload();
+    if (!keptCurrent) {
+      await stop();
+      _currentTrack = _queueManager.currentTrack ?? trackNull;
+      mediaItem.add(_queueManager.currentTrack == null
+          ? null
+          : _sessionItem(_currentTrack));
+    }
+    _broadcastPlaybackState(engine.state, engine.playing, engine.position,
+        engine.buffered, engine.speed);
+    await _queueManager.persistQueueState();
+  }
+
   Future<void> addPlayNextItem(MediaItem item) async =>
       _queueManager.addPlayNext(mediaItemToTrack(item));
 
@@ -1105,6 +1212,7 @@ class BloomeeMusicPlayer extends BaseAudioHandler
       _completionSub?.cancel() ?? Future.value(),
       _errorSub?.cancel() ?? Future.value(),
       _queueSyncSub?.cancel() ?? Future.value(),
+      _durationMetadataSub?.cancel() ?? Future.value(),
       _positionSuccessSub?.cancel() ?? Future.value(),
       _audioInterruptionSub?.cancel() ?? Future.value(),
       _audioNoisySub?.cancel() ?? Future.value(),

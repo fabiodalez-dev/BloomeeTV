@@ -33,6 +33,7 @@ class PluginCacheRepository with WidgetsBindingObserver {
   final PluginCacheWriter _writer;
 
   /// In-flight network call deduplication map.
+  bool _closed = false;
   final _inFlight = <String, Future<dynamic>>{};
 
   PluginCacheRepository({
@@ -60,6 +61,7 @@ class PluginCacheRepository with WidgetsBindingObserver {
     required Future<T> Function(String blob) decode,
     required Duration stalenessThreshold,
   }) async {
+    if (_closed) return (value: null, isStale: true);
     // ── L1 ──────────────────────────────────────────────────────────────────
     final l1 = _store.getWithAge<T>(key, type);
     if (l1 != null) {
@@ -79,6 +81,7 @@ class PluginCacheRepository with WidgetsBindingObserver {
       return (value: null, isStale: true);
 
     final T decoded = await decode(entry.value);
+    if (_closed) return (value: null, isStale: true);
 
     // Promote to L1 preserving the original write time so age is accurate.
     _store.put(key, decoded as Object, type,
@@ -104,6 +107,7 @@ class PluginCacheRepository with WidgetsBindingObserver {
     required String blob,
     Duration? ttl,
   }) {
+    if (_closed) return;
     _store.put(key, value, type);
     _writer.schedule(key, blob, ttl: ttl);
   }
@@ -148,7 +152,15 @@ class PluginCacheRepository with WidgetsBindingObserver {
     _store.clearAll();
   }
 
+  Future<void> prepareProfileSwitch() async {
+    _closed = true;
+    await _writer.flushNow();
+    _store.clearAll();
+    _inFlight.clear();
+  }
+
   void dispose() {
+    _closed = true;
     WidgetsBinding.instance.removeObserver(this);
     _writer.dispose();
   }

@@ -7,6 +7,8 @@ import 'package:Bloomee/tv/screens/tv_youtube_screen.dart';
 import 'package:Bloomee/screens/widgets/snackbar.dart';
 import 'package:Bloomee/tv/ui/tv_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:Bloomee/tv/screens/tv_control_center.dart';
+import 'package:Bloomee/tv/services/tv_diagnostics.dart';
 
 /// Stato di un collegamento, mostrato come etichetta colorata.
 enum _Link { off, checking, ok, error }
@@ -68,7 +70,8 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
   }
 
   /// Indirizzo senza schema, così entra nella riga di riepilogo.
-  static String _host(String url) => url.replaceFirst(RegExp(r'^https?://'), '');
+  static String _host(String url) =>
+      url.replaceFirst(RegExp(r'^https?://'), '');
 
   void _focusLater(FocusNode n) =>
       WidgetsBinding.instance.addPostFrameCallback((_) => n.requestFocus());
@@ -110,8 +113,16 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
     final user = _jfUser.text.trim();
     final pass = _jfPass.text;
     final key = _jfKey.text.trim();
-    final keepToken = pass.isEmpty && key.isEmpty && TvConfig.jellyfinToken.isNotEmpty;
-    if (url.isEmpty || user.isEmpty || (pass.isEmpty && key.isEmpty && !keepToken)) {
+    final sameServer =
+        url.replaceAll(RegExp(r'/+$'), '') == TvConfig.jellyfinUrl &&
+            user == TvConfig.jellyfinUser;
+    final keepToken = sameServer &&
+        pass.isEmpty &&
+        key.isEmpty &&
+        TvConfig.jellyfinToken.isNotEmpty;
+    if (url.isEmpty ||
+        user.isEmpty ||
+        (pass.isEmpty && key.isEmpty && !keepToken)) {
       setState(() {
         _jfLink = _Link.error;
         _jfMsg = 'Servono indirizzo, utente e password (oppure la chiave API)';
@@ -123,6 +134,7 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       _jfMsg = 'Collegamento…';
     });
     try {
+      TvConfig.validateUrl(url);
       final c = JellyfinClient(baseUrl: url);
       String userId;
       if (pass.isNotEmpty) {
@@ -136,7 +148,10 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       }
       c.userId = userId;
       final name = await c.serverName();
-      await TvConfig.saveJellyfin(url: url, user: user, token: c.token!, userId: userId);
+      if (!mounted) return;
+      await TvConfig.saveJellyfin(
+          url: url, user: user, token: c.token!, userId: userId);
+      if (!mounted) return;
       _jfPass.clear();
       _jfKey.clear();
       setState(() {
@@ -146,14 +161,16 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       });
       _focusLater(_jfMain);
     } on JellyfinAuthException {
+      if (!mounted) return;
       setState(() {
         _jfLink = _Link.error;
         _jfMsg = 'Utente o password non validi';
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _jfLink = _Link.error;
-        _jfMsg = 'Errore: $e';
+        _jfMsg = TvDiagnostics.redact('Errore: $e');
       });
     }
   }
@@ -185,7 +202,11 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
 
   Future<void> _connectLidarr() async {
     final url = _ldUrl.text.trim();
-    final key = _ldKey.text.trim().isNotEmpty ? _ldKey.text.trim() : TvConfig.lidarrKey;
+    final key = _ldKey.text.trim().isNotEmpty
+        ? _ldKey.text.trim()
+        : (url.replaceAll(RegExp(r'/+$'), '') == TvConfig.lidarrUrl
+            ? TvConfig.lidarrKey
+            : '');
     if (url.isEmpty || key.isEmpty) {
       setState(() {
         _ldLink = _Link.error;
@@ -198,8 +219,11 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       _ldMsg = 'Verifica…';
     });
     try {
+      TvConfig.validateUrl(url);
       final v = await LidarrClient(baseUrl: url, apiKey: key).ping();
+      if (!mounted) return;
       await TvConfig.saveLidarr(url: url, key: key);
+      if (!mounted) return;
       _ldKey.clear();
       setState(() {
         _ldEditing = false;
@@ -208,9 +232,10 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       });
       _focusLater(_ldMain);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _ldLink = _Link.error;
-        _ldMsg = 'Errore: $e';
+        _ldMsg = TvDiagnostics.redact('Errore: $e');
       });
     }
   }
@@ -247,7 +272,8 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
     if (!mounted) return;
     setState(() {});
     if (ok) {
-      SnackbarService.showMessage('YouTube Music collegato: ${TvConfig.ytName}');
+      SnackbarService.showMessage(
+          'YouTube Music collegato: ${TvConfig.ytName}');
       _checkYouTube();
     }
     _focusLater(_ytMain);
@@ -261,10 +287,17 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: TvColors.surface,
         title: Text(title, style: TvText.title),
-        content: SizedBox(width: 480, child: Text(text, style: TvText.body.copyWith(fontSize: 18))),
+        content: SizedBox(
+            width: 480,
+            child: Text(text, style: TvText.body.copyWith(fontSize: 18))),
         actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Scollega')),
+          TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annulla')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Scollega')),
         ],
       ),
     );
@@ -272,7 +305,10 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
   }
 
   Widget _field(String label, TextEditingController c,
-      {String? placeholder, bool secret = false, bool tail = false, FocusNode? focusNode}) {
+      {String? placeholder,
+      bool secret = false,
+      bool tail = false,
+      FocusNode? focusNode}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TvTextField(
@@ -304,15 +340,25 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       children: _jfEditing
           ? [
               _field('Indirizzo server', _jfUrl,
-                  placeholder: 'es. https://casa.example/jellyfin', focusNode: _jfFirst),
+                  placeholder: 'es. https://casa.example/jellyfin',
+                  focusNode: _jfFirst),
               _field('Utente', _jfUser, placeholder: 'Nome utente Jellyfin'),
-              _field('Password', _jfPass, secret: true, placeholder: has ? 'Accesso già salvato: non serve' : 'Non inserita'),
+              _field('Password', _jfPass,
+                  secret: true,
+                  placeholder:
+                      has ? 'Accesso già salvato: non serve' : 'Non inserita'),
               _field('Oppure chiave API', _jfKey,
-                  secret: true, tail: true, placeholder: 'Non inserita (facoltativa)'),
-              Text('Basta la password oppure la chiave API.', style: TvText.body.copyWith(fontSize: 14)),
+                  secret: true,
+                  tail: true,
+                  placeholder: 'Non inserita (facoltativa)'),
+              Text('Basta la password oppure la chiave API.',
+                  style: TvText.body.copyWith(fontSize: 14)),
               _buttons([
                 TvPillButton(
-                    focusNode: _jfMain, icon: Icons.link_rounded, label: 'Collega', primary: true,
+                    focusNode: _jfMain,
+                    icon: Icons.link_rounded,
+                    label: 'Collega',
+                    primary: true,
                     onTap: _jfLink == _Link.checking ? null : _connectJellyfin),
                 if (has)
                   TvPillButton(
@@ -330,8 +376,14 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
               ]),
             ]
           : [
-              _InfoRow(icon: Icons.public_rounded, label: 'Server', value: _host(TvConfig.jellyfinUrl)),
-              _InfoRow(icon: Icons.person_rounded, label: 'Utente', value: TvConfig.jellyfinUser),
+              _InfoRow(
+                  icon: Icons.public_rounded,
+                  label: 'Server',
+                  value: _host(TvConfig.jellyfinUrl)),
+              _InfoRow(
+                  icon: Icons.person_rounded,
+                  label: 'Utente',
+                  value: TvConfig.jellyfinUser),
               _InfoRow(
                   icon: Icons.key_rounded,
                   label: 'Token',
@@ -339,7 +391,10 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                   mono: true),
               _buttons([
                 TvPillButton(
-                    focusNode: _jfMain, icon: Icons.refresh_rounded, label: 'Verifica', primary: true,
+                    focusNode: _jfMain,
+                    icon: Icons.refresh_rounded,
+                    label: 'Verifica',
+                    primary: true,
                     onTap: _jfLink == _Link.checking ? null : _checkJellyfin),
                 TvPillButton(
                     icon: Icons.edit_rounded,
@@ -357,6 +412,7 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                         return;
                       }
                       await TvConfig.clearJellyfin();
+                      if (!mounted) return;
                       setState(() {
                         _jfEditing = true;
                         _jfLink = _Link.off;
@@ -380,7 +436,8 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
       children: _ldEditing
           ? [
               _field('Indirizzo Lidarr', _ldUrl,
-                  placeholder: 'es. http://192.168.1.10:8686', focusNode: _ldFirst),
+                  placeholder: 'es. http://192.168.1.10:8686',
+                  focusNode: _ldFirst),
               _field('Chiave API', _ldKey,
                   secret: true,
                   tail: true,
@@ -391,7 +448,10 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                   style: TvText.body.copyWith(fontSize: 14)),
               _buttons([
                 TvPillButton(
-                    focusNode: _ldMain, icon: Icons.check_rounded, label: 'Verifica e salva', primary: true,
+                    focusNode: _ldMain,
+                    icon: Icons.check_rounded,
+                    label: 'Verifica e salva',
+                    primary: true,
                     onTap: _ldLink == _Link.checking ? null : _connectLidarr),
                 if (has)
                   TvPillButton(
@@ -407,12 +467,21 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
               ]),
             ]
           : [
-              _InfoRow(icon: Icons.public_rounded, label: 'Server', value: _host(TvConfig.lidarrUrl)),
               _InfoRow(
-                  icon: Icons.key_rounded, label: 'Chiave API', value: maskSecret(TvConfig.lidarrKey), mono: true),
+                  icon: Icons.public_rounded,
+                  label: 'Server',
+                  value: _host(TvConfig.lidarrUrl)),
+              _InfoRow(
+                  icon: Icons.key_rounded,
+                  label: 'Chiave API',
+                  value: maskSecret(TvConfig.lidarrKey),
+                  mono: true),
               _buttons([
                 TvPillButton(
-                    focusNode: _ldMain, icon: Icons.refresh_rounded, label: 'Verifica', primary: true,
+                    focusNode: _ldMain,
+                    icon: Icons.refresh_rounded,
+                    label: 'Verifica',
+                    primary: true,
                     onTap: _ldLink == _Link.checking ? null : _checkLidarr),
                 TvPillButton(
                     icon: Icons.edit_rounded,
@@ -430,6 +499,7 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                         return;
                       }
                       await TvConfig.clearLidarr();
+                      if (!mounted) return;
                       setState(() {
                         _ldEditing = true;
                         _ldLink = _Link.off;
@@ -461,13 +531,16 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
               CircleAvatar(
                 radius: 26,
                 backgroundColor: TvColors.accent,
-                child: Text(name.isEmpty ? '?' : name.characters.first.toUpperCase(),
+                child: Text(
+                    name.isEmpty ? '?' : name.characters.first.toUpperCase(),
                     style: TvText.title.copyWith(color: Colors.white)),
               ),
               const SizedBox(width: 16),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(name.isEmpty ? 'Account Google' : name, style: TvText.title),
-                Text('Accesso salvato su questo dispositivo', style: TvText.body.copyWith(fontSize: 14)),
+                Text(name.isEmpty ? 'Account Google' : name,
+                    style: TvText.title),
+                Text('Accesso salvato su questo dispositivo',
+                    style: TvText.body.copyWith(fontSize: 14)),
               ]),
             ]),
           ),
@@ -516,6 +589,10 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
         children: [
           const Text('Impostazioni', style: TvText.hero),
           const SizedBox(height: 24),
+          TvPillButton(
+              icon: Icons.dashboard_customize,
+              label: 'Centro TV: profili, Home, download e accessibilità',
+              onTap: () => openTvControlCenter(context)),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -529,12 +606,14 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
             TvPillButton(
               icon: Icons.tune_rounded,
               label: 'Impostazioni avanzate dell\'app',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsView())),
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsView())),
             ),
             TvPillButton(
               icon: Icons.extension_rounded,
               label: 'Sorgenti (plugin)',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PluginManagerScreen())),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const PluginManagerScreen())),
             ),
           ]),
         ],
@@ -579,7 +658,9 @@ class _ServiceCard extends StatelessWidget {
           Row(children: [
             Icon(icon, color: TvColors.accent, size: 28),
             const SizedBox(width: 12),
-            Flexible(child: Text(title, style: TvText.title, overflow: TextOverflow.ellipsis)),
+            Flexible(
+                child: Text(title,
+                    style: TvText.title, overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 14),
             _StatusChip(link),
           ]),
@@ -601,7 +682,9 @@ class _ServiceCard extends StatelessWidget {
                   color: color,
                   size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text(message!, style: TvText.body.copyWith(color: color, fontSize: 15))),
+              Expanded(
+                  child: Text(message!,
+                      style: TvText.body.copyWith(color: color, fontSize: 15))),
             ]),
           ],
         ],
@@ -637,9 +720,14 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 9, height: 9, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 7),
-        Text(label, style: TvText.body.copyWith(color: color, fontSize: 14, fontWeight: FontWeight.w600)),
+        Text(label,
+            style: TvText.body.copyWith(
+                color: color, fontSize: 14, fontWeight: FontWeight.w600)),
       ]),
     );
   }
@@ -647,7 +735,11 @@ class _StatusChip extends StatelessWidget {
 
 /// Riga di riepilogo non modificabile: icona, etichetta, valore.
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value, this.mono = false});
+  const _InfoRow(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      this.mono = false});
   final IconData icon;
   final String label;
   final String value;
@@ -658,17 +750,21 @@ class _InfoRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: TvColors.surfaceHi, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+          color: TvColors.surfaceHi, borderRadius: BorderRadius.circular(10)),
       child: Row(children: [
         Icon(icon, color: TvColors.textDim, size: 22),
         const SizedBox(width: 14),
-        SizedBox(width: 84, child: Text(label, style: TvText.body.copyWith(fontSize: 15))),
+        SizedBox(
+            width: 84,
+            child: Text(label, style: TvText.body.copyWith(fontSize: 15))),
         Expanded(
           child: Text(
             value.isEmpty ? '—' : value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TvText.card.copyWith(fontSize: 17, letterSpacing: mono ? 1.2 : null),
+            style: TvText.card
+                .copyWith(fontSize: 17, letterSpacing: mono ? 1.2 : null),
           ),
         ),
       ]),

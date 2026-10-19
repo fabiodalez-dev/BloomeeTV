@@ -108,7 +108,7 @@ class PlaylistDAO {
           .deleteAll();
       await isar.playlistDBs.delete(playlistId);
     });
-    _trackDAO.purgeOrphanTracks();
+    await _trackDAO.purgeOrphanTracks();
     log('Deleted playlist id=$playlistId', name: 'PlaylistDAO');
   }
 

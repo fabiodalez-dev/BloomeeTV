@@ -25,7 +25,6 @@ import 'package:Bloomee/tv/screens/tv_artist_screen.dart';
 import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:icons_plus/icons_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class ArtistView extends StatefulWidget {
   final ArtistSummary artist;

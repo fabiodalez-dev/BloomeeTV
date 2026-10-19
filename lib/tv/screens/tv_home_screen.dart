@@ -1,4 +1,8 @@
 import 'dart:ui';
+import 'package:Bloomee/tv/services/tv_workspace.dart';
+import 'package:Bloomee/tv/services/tv_saved_library.dart';
+import 'package:Bloomee/tv/services/tv_catalog_cache.dart';
+import 'package:Bloomee/tv/screens/tv_control_center.dart';
 
 import 'package:Bloomee/blocs/explore/cubit/explore_cubits.dart';
 import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
@@ -56,18 +60,32 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
       ContentBloc(pluginService: ServiceLocator.pluginService);
   late final ChartBloc _charts =
       ChartBloc(pluginService: ServiceLocator.pluginService);
-  final _hero = ValueNotifier<_HeroInfo>(const _HeroInfo(
-      'Bloomee TV', 'Scegli qualcosa da ascoltare', null));
+  final _hero = ValueNotifier<_HeroInfo>(
+      const _HeroInfo('Bloomee TV', 'Scegli qualcosa da ascoltare', null));
 
   List<YtItem> _ytHistory = const [];
   List<YtSection> _ytHome = const [];
   List<JfItem> _jfRecent = const [];
   List<JfItem> _jfRandom = const [];
   String? _jfError;
+  int _jfGeneration = 0, _ytGeneration = 0;
+  bool _showGuide = false;
+  void _preferencesChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
+    TvWorkspace.instance.addListener(_preferencesChanged);
+    TvWorkspace.instance
+        .claimGuidePrompt(
+            configured: TvConfig.hasJellyfin ||
+                TvConfig.hasLidarr ||
+                TvConfig.hasYouTube)
+        .then((show) {
+      if (mounted) setState(() => _showGuide = show);
+    });
     _tryLoadHome();
     _tryLoadCharts();
     _loadJellyfin();
@@ -80,6 +98,9 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
   void dispose() {
     TvConfig.changes.removeListener(_loadJellyfin);
     TvConfig.changes.removeListener(_loadYouTube);
+    TvWorkspace.instance.removeListener(_preferencesChanged);
+    _jfGeneration++;
+    _ytGeneration++;
     _content.close();
     _charts.close();
     _hero.dispose();
@@ -87,6 +108,7 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
   }
 
   Future<void> _loadJellyfin() async {
+    final generation = ++_jfGeneration;
     final jf = TvConfig.jellyfin;
     if (jf == null) {
       setState(() {
@@ -96,34 +118,41 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
       return;
     }
     try {
-      final r = await Future.wait([jf.recentAlbums(limit: 20), jf.randomAlbums(limit: 20)]);
-      if (!mounted) return;
+      final r = await Future.wait(
+          [jf.recentAlbums(limit: 20), jf.randomAlbums(limit: 20)]);
+      if (!mounted || generation != _jfGeneration) return;
       setState(() {
         _jfRecent = r[0];
         _jfRandom = r[1];
         _jfError = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _jfError = '$e');
+      if (mounted && generation == _jfGeneration)
+        setState(() => _jfError = 'Verifica il server o riprova');
     }
   }
 
   Future<void> _loadYouTube() async {
+    final generation = ++_ytGeneration;
     if (!TvConfig.hasYouTube) {
-      if (mounted) setState(() {
-        _ytHistory = const [];
-        _ytHome = const [];
-      });
+      if (mounted)
+        setState(() {
+          _ytHistory = const [];
+          _ytHome = const [];
+        });
       return;
     }
     final c = TvConfig.youtube;
     try {
       final h = await c.history();
-      if (mounted) setState(() => _ytHistory = h.where((i) => i.videoId != null).take(30).toList());
+      if (mounted && generation == _ytGeneration)
+        setState(() =>
+            _ytHistory = h.where((i) => i.videoId != null).take(30).toList());
     } catch (_) {}
     try {
       final home = await c.home();
-      if (mounted) setState(() => _ytHome = home.take(5).toList());
+      if (mounted && generation == _ytGeneration)
+        setState(() => _ytHome = home.take(5).toList());
     } catch (_) {}
   }
 
@@ -137,8 +166,12 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
       itemBuilder: (_, i) {
         final it = items[i];
         return ytCard(context, it, items, title,
-            onFocused: () => _focus(_HeroInfo(it.title, it.artistNames.isNotEmpty ? it.artistNames : it.subtitle,
-                it.thumbnail, kind: '${it.kind == 'song' ? 'Brano' : it.kind == 'album' ? 'Album' : it.kind == 'artist' ? 'Artista' : 'Playlist'} · $title')));
+            onFocused: () => _focus(_HeroInfo(
+                it.title,
+                it.artistNames.isNotEmpty ? it.artistNames : it.subtitle,
+                it.thumbnail,
+                kind:
+                    '${it.kind == 'song' ? 'Brano' : it.kind == 'album' ? 'Album' : it.kind == 'artist' ? 'Artista' : 'Playlist'} · $title')));
       },
     );
   }
@@ -153,8 +186,11 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     if (pref.isNotEmpty && !resolvers.any((p) => p.manifest.id == pref)) {
       if (ps.availablePlugins.any((p) => p.manifest.id == pref)) return;
     }
-    final id = resolvers.any((p) => p.manifest.id == pref) ? pref : resolvers.first.manifest.id;
-    if (_content.state.activePluginId == id && _content.state.homeSections != null) return;
+    final id = resolvers.any((p) => p.manifest.id == pref)
+        ? pref
+        : resolvers.first.manifest.id;
+    if (_content.state.activePluginId == id &&
+        _content.state.homeSections != null) return;
     _content.add(GetHomeSections(pluginId: id));
   }
 
@@ -162,7 +198,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     final providers = context.read<PluginBloc>().state.loadedChartProviders;
     if (providers.isEmpty) return;
     final id = providers.first.manifest.id;
-    if (_charts.state.activePluginId == id && _charts.state.charts.isNotEmpty) return;
+    if (_charts.state.activePluginId == id && _charts.state.charts.isNotEmpty)
+      return;
     _charts.add(LoadCharts(pluginId: id));
   }
 
@@ -170,15 +207,21 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
 
   // ── Azioni ───────────────────────────────────────────────────────────
 
-  void _push(Widget page) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  void _push(Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
   void _openItem(MediaItem item, Section section, String pluginId) {
     item.when(
       track: (t) {
-        final tracks = section.items.whereType<MediaItem_Track>().map((e) => e.field0).toList();
+        final tracks = section.items
+            .whereType<MediaItem_Track>()
+            .map((e) => e.field0)
+            .toList();
         final idx = tracks.indexWhere((e) => e.id == t.id);
         context.read<BloomeePlayerCubit>().bloomeePlayer.loadPlaylist(
-            Playlist(tracks: tracks, title: section.title), idx: idx < 0 ? 0 : idx, doPlay: true);
+            Playlist(tracks: tracks, title: section.title),
+            idx: idx < 0 ? 0 : idx,
+            doPlay: true);
       },
       album: (a) => _push(AlbumView(album: a, pluginId: pluginId)),
       artist: (a) => _push(ArtistView(artist: a, pluginId: pluginId)),
@@ -188,20 +231,34 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
 
   /// OK tenuto premuto su un album o un brano: "Scarica questo album".
   VoidCallback? _longPressFor(MediaItem item) => item.when(
-        track: (t) => () => showDownloadMenu(context, artist: _artists(t.artists), album: t.album?.title ?? '', track: t),
-        album: (a) => () => showDownloadMenu(context, artist: _artists(a.artists), album: a.title, albumTracks: () => pluginAlbumTracks(a)),
+        track: (t) => () => showDownloadMenu(context,
+            artist: _artists(t.artists), album: t.album?.title ?? '', track: t),
+        album: (a) => () => showDownloadMenu(context,
+            artist: _artists(a.artists),
+            album: a.title,
+            albumTracks: () => pluginAlbumTracks(a)),
         artist: (_) => null,
         playlist: (_) => null,
       );
 
   // ── Righe ─────────────────────────────────────────────────────────────
 
-  Widget _mediaCard(MediaItem item, Section section, String pluginId, {bool autofocus = false}) {
+  Widget _mediaCard(MediaItem item, Section section, String pluginId,
+      {bool autofocus = false}) {
     final (title, sub, img, circle, kind) = item.when(
-      track: (t) => (t.title, _artists(t.artists), _art(t.thumbnail), false, 'Brano'),
-      album: (a) => (a.title, _artists(a.artists), _art(a.thumbnail), false, 'Album'),
-      artist: (a) => (a.name, a.subtitle ?? 'Artista', _art(a.thumbnail), true, 'Artista'),
-      playlist: (p) => (p.title, p.owner ?? 'Playlist', _art(p.thumbnail), false, 'Playlist'),
+      track: (t) =>
+          (t.title, _artists(t.artists), _art(t.thumbnail), false, 'Brano'),
+      album: (a) =>
+          (a.title, _artists(a.artists), _art(a.thumbnail), false, 'Album'),
+      artist: (a) =>
+          (a.name, a.subtitle ?? 'Artista', _art(a.thumbnail), true, 'Artista'),
+      playlist: (p) => (
+        p.title,
+        p.owner ?? 'Playlist',
+        _art(p.thumbnail),
+        false,
+        'Playlist'
+      ),
     );
     return TvCard(
       title: title,
@@ -210,9 +267,11 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
       circle: circle,
       autofocus: autofocus,
       badge: kind == 'Brano' ? Icons.play_arrow_rounded : null,
-      onFocused: () => _focus(_HeroInfo(title, sub, img, kind: '$kind · ${section.title}')),
+      onFocused: () =>
+          _focus(_HeroInfo(title, sub, img, kind: '$kind · ${section.title}')),
       onTap: () => _openItem(item, section, pluginId),
-      onLongPress: _longPressFor(item),
+      onLongPress: () => showTvReferenceMenu(context, TvReference.item(item),
+          download: _longPressFor(item)),
     );
   }
 
@@ -225,16 +284,29 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
       itemCount: items.length,
       itemBuilder: (_, i) {
         final a = items[i];
-        final img = a.imageItemId == null ? null : jf.imageUrl(a.imageItemId!, maxSize: 400);
+        final img = a.imageItemId == null
+            ? null
+            : jf.imageUrl(a.imageItemId!, maxSize: 400);
         return TvCard(
           title: a.name,
           subtitle: a.albumArtist,
           imageUrl: img,
-          onFocused: () => _focus(_HeroInfo(a.name, '${a.albumArtist}${a.year != null ? ' · ${a.year}' : ''}',
-              a.imageItemId == null ? null : jf.imageUrl(a.imageItemId!, maxSize: 900),
+          onFocused: () => _focus(_HeroInfo(
+              a.name,
+              '${a.albumArtist}${a.year != null ? ' · ${a.year}' : ''}',
+              a.imageItemId == null
+                  ? null
+                  : jf.imageUrl(a.imageItemId!, maxSize: 900),
               kind: 'Nella tua libreria')),
           onTap: () => _push(TvJellyfinAlbumScreen(album: a)),
-          onLongPress: () => playJellyfinAlbum(context, a),
+          onLongPress: () => showTvReferenceMenu(
+              context, TvReference.item(a.toMedia(jf)),
+              download: () => showDownloadMenu(context,
+                  artist: a.albumArtist,
+                  album: a.name,
+                  albumTracks: () async => (await jf.albumTracks(a.id))
+                      .map((t) => t.toTrack(jf))
+                      .toList())),
         );
       },
     );
@@ -256,10 +328,20 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
               subtitle: _artists(t.artists),
               imageUrl: img,
               badge: Icons.play_arrow_rounded,
-              onFocused: () => _focus(_HeroInfo(t.title, _artists(t.artists), img, kind: 'Ascoltato di recente')),
-              onTap: () => context.read<BloomeePlayerCubit>().bloomeePlayer.loadPlaylist(
-                  Playlist(tracks: tracks, title: 'Ascoltati di recente'), idx: i, doPlay: true),
-              onLongPress: () => showDownloadMenu(context, artist: _artists(t.artists), album: t.album?.title ?? '', track: t),
+              onFocused: () => _focus(_HeroInfo(
+                  t.title, _artists(t.artists), img,
+                  kind: 'Ascoltato di recente')),
+              onTap: () => context
+                  .read<BloomeePlayerCubit>()
+                  .bloomeePlayer
+                  .loadPlaylist(
+                      Playlist(tracks: tracks, title: 'Ascoltati di recente'),
+                      idx: i,
+                      doPlay: true),
+              onLongPress: () => showDownloadMenu(context,
+                  artist: _artists(t.artists),
+                  album: t.album?.title ?? '',
+                  track: t),
             );
           },
         );
@@ -283,8 +365,11 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
               title: c.title,
               subtitle: c.description,
               imageUrl: _art(c.thumbnail),
-              onFocused: () => _focus(_HeroInfo(c.title, c.description ?? 'Classifica', _art(c.thumbnail), kind: 'Classifica')),
-              onTap: () => _push(ChartScreen(pluginId: pluginId, chartId: c.id, chartTitle: c.title)),
+              onFocused: () => _focus(_HeroInfo(
+                  c.title, c.description ?? 'Classifica', _art(c.thumbnail),
+                  kind: 'Classifica')),
+              onTap: () => _push(ChartScreen(
+                  pluginId: pluginId, chartId: c.id, chartTitle: c.title)),
             );
           },
         );
@@ -302,13 +387,19 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
           if (state.homeSectionsStatus == DetailStatus.error) {
             return Padding(
               padding: const EdgeInsets.all(48),
-              child: TvMessage(icon: Icons.cloud_off_rounded, text: 'Sorgente online non disponibile: ${state.error ?? ''}'),
+              child: TvMessage(
+                  icon: Icons.cloud_off_rounded,
+                  text:
+                      'Sorgente online non disponibile: ${state.error ?? ''}'),
             );
           }
           if (state.homeSectionsStatus == DetailStatus.loading) {
             return const Padding(
               padding: EdgeInsets.all(48),
-              child: TvMessage(icon: Icons.hourglass_empty, text: 'Carico le novità…', loading: true),
+              child: TvMessage(
+                  icon: Icons.hourglass_empty,
+                  text: 'Carico le novità…',
+                  loading: true),
             );
           }
           return const SizedBox.shrink();
@@ -329,12 +420,37 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     );
   }
 
+  List<Widget> _orderedRows() {
+    final rows = <String, Widget>{
+      'jfRecent': _jfRow('Aggiunti di recente', _jfRecent),
+      'ytHistory': _ytRow('Ascoltati di recente su YouTube', _ytHistory),
+      'ytHome': Column(children: [
+        for (final sec in _ytHome) _ytRow(sec.title, sec.items, section: sec)
+      ]),
+      'recent': _recentRow(),
+      'jfRandom': _jfRow('Scelti per te', _jfRandom),
+      'charts': _chartsRow(),
+      'sections': _sections(),
+    };
+    final order = List<String>.from(
+        TvWorkspace.instance['homeOrder'] as List? ?? rows.keys.toList());
+    final first = TvWorkspace.instance['startSection'];
+    if (first is String && order.remove(first)) order.insert(0, first);
+    final hidden = TvWorkspace.instance['hiddenRows'] as List? ?? [];
+    return [
+      for (final key in order)
+        if (!hidden.contains(key) && rows.containsKey(key)) rows[key]!
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
         BlocListener<SettingsCubit, SettingsState>(
-          listenWhen: (a, b) => a.homePluginId != b.homePluginId || (!a.settingsReady && b.settingsReady),
+          listenWhen: (a, b) =>
+              a.homePluginId != b.homePluginId ||
+              (!a.settingsReady && b.settingsReady),
           listener: (_, __) {
             _content.add(const ClearHomeSections());
             _tryLoadHome();
@@ -342,7 +458,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
         ),
         BlocListener<PluginBloc, PluginState>(
           listenWhen: (a, b) =>
-              a.loadedContentResolvers != b.loadedContentResolvers || a.loadedPluginIds != b.loadedPluginIds,
+              a.loadedContentResolvers != b.loadedContentResolvers ||
+              a.loadedPluginIds != b.loadedPluginIds,
           listener: (_, __) {
             _tryLoadHome();
             _tryLoadCharts();
@@ -373,15 +490,65 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
                       if (_jfError != null)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(48, 0, 48, 24),
-                          child: Text('Jellyfin non raggiungibile: $_jfError', style: TvText.body),
+                          child: Text('Jellyfin non raggiungibile: $_jfError',
+                              style: TvText.body),
                         ),
-                      _jfRow('Aggiunti di recente', _jfRecent),
-                      _ytRow('Ascoltati di recente su YouTube', _ytHistory),
-                      for (final sec in _ytHome) _ytRow(sec.title, sec.items, section: sec),
-                      _recentRow(),
-                      _jfRow('Scelti per te', _jfRandom),
-                      _chartsRow(),
-                      _sections(),
+                      if (_showGuide &&
+                          TvWorkspace.instance['onboardedTv'] != true)
+                        Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 48),
+                            child: TvPillButton(
+                                icon: Icons.play_circle_outline,
+                                label:
+                                    'Inizia: guida ai servizi e al telecomando',
+                                onTap: () {
+                                  setState(() => _showGuide = false);
+                                  openTvControlCenter(context);
+                                })),
+                      Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 48),
+                          child: Wrap(spacing: 12, children: [
+                            TvPillButton(
+                                icon: Icons.dashboard_customize,
+                                label: 'Personalizza',
+                                onTap: () =>
+                                    openTvControlCenter(context, TvTool.home)),
+                            TvPillButton(
+                                icon: Icons.account_circle,
+                                label: TvProfiles.instance.selected.name,
+                                onTap: () => openTvControlCenter(
+                                    context, TvTool.profili)),
+                            TvPillButton(
+                                icon: Icons.favorite,
+                                label: 'Preferiti unificati',
+                                onTap: () => openTvControlCenter(
+                                    context, TvTool.preferiti)),
+                          ])),
+                      ListenableBuilder(
+                          listenable: TvCatalogCache.instance,
+                          builder: (_, __) => TvCatalogCache
+                                  .instance.offlineSources.isEmpty
+                              ? const SizedBox.shrink()
+                              : Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                      'Catalogo da cache: ${TvCatalogCache.instance.offlineSources.entries.map((e) => '${e.key}, aggiornato ${e.value.toLocal()}').join(' · ')}',
+                                      style: TvText.body))),
+                      if (TvSavedLibrary.instance.pins.isNotEmpty)
+                        TvRow(
+                            title: 'Fissati',
+                            itemCount: TvSavedLibrary.instance.pins.length,
+                            itemBuilder: (_, i) {
+                              final item = TvSavedLibrary.instance.pins[i];
+                              return TvCard(
+                                  title: item.title,
+                                  subtitle: item.subtitle,
+                                  imageUrl: item.image,
+                                  onTap: () => openTvReference(context, item),
+                                  onLongPress: () =>
+                                      showTvReferenceMenu(context, item));
+                            }),
+                      ..._orderedRows(),
                     ],
                   ),
                 ),
@@ -417,6 +584,7 @@ class _Backdrop extends StatelessWidget {
                       opacity: 0.55,
                       child: CachedNetworkImage(
                         imageUrl: h.image!,
+                        httpHeaders: TvConfig.artworkHeaders(h.image!),
                         fit: BoxFit.cover,
                         memCacheWidth: 320,
                         errorWidget: (_, __, ___) => const SizedBox.shrink(),
@@ -470,11 +638,18 @@ class _HeroHeader extends StatelessWidget {
                       Text(h.kind!.toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TvText.cardSub.copyWith(letterSpacing: 1.6, color: TvColors.accent)),
+                          style: TvText.cardSub.copyWith(
+                              letterSpacing: 1.6, color: TvColors.accent)),
                     const SizedBox(height: 4),
-                    Text(h.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.hero.copyWith(fontSize: 34)),
+                    Text(h.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TvText.hero.copyWith(fontSize: 34)),
                     const SizedBox(height: 4),
-                    Text(h.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.body.copyWith(fontSize: 18)),
+                    Text(h.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TvText.body.copyWith(fontSize: 18)),
                   ],
                 ),
               ),

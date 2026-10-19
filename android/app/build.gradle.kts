@@ -12,6 +12,7 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 
 
 android {
+    testBuildType = "debug"
     namespace = "ls.bloomee.musicplayer"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
@@ -27,11 +28,13 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         applicationId = "it.fabiodalez.bloomeetv"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
+        manifestPlaceholders["baseVersionCode"] = flutter.versionCode
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -80,6 +83,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Optional local device testing over an existing signed install.
+            if (providers.gradleProperty("signDebugWithRelease").orNull == "true" && keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
         release {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
@@ -102,4 +111,16 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// Cast Connect receives controls and publishes the existing media session.
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    // Keep instrumentation aligned with Flutter integration_test's debug runtime.
+    debugImplementation("androidx.test.ext:junit:1.2.1")
+    debugImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    implementation("com.google.android.gms:play-services-cast-tv:21.1.1")
+    implementation("com.google.android.gms:play-services-cast:22.3.1")
 }

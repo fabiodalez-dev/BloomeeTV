@@ -1,13 +1,20 @@
 import 'package:Bloomee/services/bloomee_updater_tools.dart';
+import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:Bloomee/utils/url_launcher.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
 import 'package:icons_plus/icons_plus.dart';
 
-class CheckUpdateView extends StatelessWidget {
+class CheckUpdateView extends StatefulWidget {
   const CheckUpdateView({super.key});
 
+  @override
+  State<CheckUpdateView> createState() => _CheckUpdateViewState();
+}
+
+class _CheckUpdateViewState extends State<CheckUpdateView> {
+  late Future<Map<String, dynamic>> _updates = getLatestVersion();
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -25,8 +32,19 @@ class CheckUpdateView extends StatelessWidget {
       ),
       body: Center(
         child: FutureBuilder(
-          future: getLatestVersion(),
+          future: _updates,
           builder: (context, snapshot) {
+            if (snapshot.hasError || snapshot.data?['error'] != null) {
+              return Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('Verifica aggiornamenti non riuscita'),
+                const SizedBox(height: 16),
+                FilledButton(
+                    autofocus: true,
+                    onPressed: () =>
+                        setState(() => _updates = getLatestVersion()),
+                    child: const Text('Riprova')),
+              ]);
+            }
             if (snapshot.hasData) {
               if (!snapshot.data?["results"]) {
                 return Column(
@@ -43,8 +61,9 @@ class CheckUpdateView extends StatelessWidget {
                       padding: const EdgeInsets.all(5.0),
                       child: FilledButton(
                         onPressed: () {
-                          launch_Url(Uri.parse(
-                              "https://github.com/HemantKArya/BloomeeTunes/releases"));
+                          launch_Url(Uri.parse(TvMode.isTv
+                              ? 'https://github.com/fabiodalez-dev/BloomeeTV/releases'
+                              : 'https://github.com/HemantKArya/BloomeeTunes/releases'));
                         },
                         child: SizedBox(
                           // width: 150,

@@ -70,6 +70,12 @@ class PluginEventBus {
         name: 'PluginEventBus');
   }
 
+  Future<void> disconnect() async {
+    await _rustSubscription?.cancel();
+    _rustSubscription = null;
+    _connected = false;
+  }
+
   /// Clean up. Cancel the Rust stream subscription and close the broadcast controller.
   void dispose() {
     _rustSubscription?.cancel();

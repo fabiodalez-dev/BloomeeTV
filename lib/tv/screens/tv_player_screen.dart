@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:Bloomee/tv/screens/tv_control_center.dart';
+import 'package:Bloomee/tv/services/tv_saved_library.dart';
+import 'package:Bloomee/core/models/exported.dart' as domain;
 
 import 'package:Bloomee/blocs/library/cubit/library_items_cubit.dart';
 import 'package:Bloomee/blocs/media_player/bloomee_player_cubit.dart';
@@ -25,7 +28,8 @@ FocusNode? _lastControl;
 
 /// Destra dall'elemento più a destra dei comandi: la coda (sul brano attuale).
 KeyEventResult _toQueue(KeyEvent e) {
-  if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.arrowRight) return KeyEventResult.ignored;
+  if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.arrowRight)
+    return KeyEventResult.ignored;
   final p = FocusManager.instance.primaryFocus;
   if (p == null || p.context == null) return KeyEventResult.ignored;
   // Se a destra c'è un altro comando sulla stessa riga, ci va lui.
@@ -39,10 +43,15 @@ KeyEventResult _toQueue(KeyEvent e) {
           n.rect.bottom > cur.top) ??
       false;
   if (sameRow) return KeyEventResult.ignored;
-  final items = _queueScope.traversalDescendants.where((n) => n.canRequestFocus && n is! FocusScopeNode).toList();
+  final items = _queueScope.traversalDescendants
+      .where((n) => n.canRequestFocus && n is! FocusScopeNode)
+      .toList();
   if (items.isEmpty) return KeyEventResult.handled;
   _lastControl = p;
-  final playing = items.firstWhere((n) => n.context?.findAncestorWidgetOfExactType<TvTrackTile>()?.playing ?? false,
+  final playing = items.firstWhere(
+      (n) =>
+          n.context?.findAncestorWidgetOfExactType<TvTrackTile>()?.playing ??
+          false,
       orElse: () => items.first);
   playing.requestFocus();
   return KeyEventResult.handled;
@@ -50,12 +59,16 @@ KeyEventResult _toQueue(KeyEvent e) {
 
 /// Sinistra dalla coda: torna al comando da cui si era arrivati.
 KeyEventResult _toControls(KeyEvent e) {
-  if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.arrowLeft) return KeyEventResult.ignored;
+  if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.arrowLeft)
+    return KeyEventResult.ignored;
   final last = _lastControl;
   if (last != null && last.context != null && last.canRequestFocus) {
     last.requestFocus();
   } else {
-    tvPlayerAnchor.descendants.where((d) => d.canRequestFocus).firstOrNull?.requestFocus();
+    tvPlayerAnchor.descendants
+        .where((d) => d.canRequestFocus)
+        .firstOrNull
+        ?.requestFocus();
   }
   return KeyEventResult.handled;
 }
@@ -72,7 +85,6 @@ class TvPlayerScreen extends StatelessWidget {
         stream: player.mediaItem,
         builder: (context, snap) {
           final mi = snap.data;
-          final art = mi?.artUri?.toString();
           return Stack(
             children: [
               Padding(
@@ -87,7 +99,8 @@ class TvPlayerScreen extends StatelessWidget {
                           canRequestFocus: false,
                           skipTraversal: true,
                           onKeyEvent: (n, e) => _toQueue(e),
-                          child: _NowPlaying(mi: mi),
+                          child:
+                              SingleChildScrollView(child: _NowPlaying(mi: mi)),
                         ),
                       ),
                     ),
@@ -132,15 +145,27 @@ class _NowPlaying extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('IN RIPRODUZIONE',
-                      style: TextStyle(color: TvColors.accent, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          color: TvColors.accent,
+                          fontSize: 12,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(height: 6),
                   Text(m?.title ?? '—',
-                      maxLines: 2, overflow: TextOverflow.ellipsis, style: TvText.hero.copyWith(fontSize: 32)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TvText.hero.copyWith(fontSize: 32)),
                   const SizedBox(height: 6),
                   Text(m?.artist ?? '',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.title.copyWith(color: TvColors.textDim, fontSize: 18)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TvText.title
+                          .copyWith(color: TvColors.textDim, fontSize: 18)),
                   if ((m?.album ?? '').isNotEmpty)
-                    Text(m!.album!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.body.copyWith(fontSize: 15)),
+                    Text(m!.album!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TvText.body.copyWith(fontSize: 15)),
                 ],
               ),
             ),
@@ -159,7 +184,11 @@ class _NowPlaying extends StatelessWidget {
               onTap: () => player.shuffle(!(s.data ?? false)),
             ),
           ),
-          _RoundButton(icon: Icons.skip_previous_rounded, size: 50, tooltip: 'Precedente', onTap: player.skipToPrevious),
+          _RoundButton(
+              icon: Icons.skip_previous_rounded,
+              size: 50,
+              tooltip: 'Precedente',
+              onTap: player.skipToPrevious),
           Focus(
             focusNode: tvPlayerAnchor,
             canRequestFocus: false,
@@ -169,7 +198,8 @@ class _NowPlaying extends StatelessWidget {
               builder: (_, s) {
                 final playing = s.data?.isPlaying ?? false;
                 return _RoundButton(
-                  icon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  icon:
+                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                   size: 64,
                   primary: true,
                   tooltip: playing ? 'Pausa' : 'Riproduci',
@@ -178,13 +208,19 @@ class _NowPlaying extends StatelessWidget {
               },
             ),
           ),
-          _RoundButton(icon: Icons.skip_next_rounded, size: 50, tooltip: 'Successivo', onTap: player.skipToNext),
+          _RoundButton(
+              icon: Icons.skip_next_rounded,
+              size: 50,
+              tooltip: 'Successivo',
+              onTap: player.skipToNext),
           StreamBuilder<LoopMode>(
             stream: player.loopMode,
             builder: (_, s) {
               final mode = s.data ?? LoopMode.off;
               return _RoundButton(
-                icon: mode == LoopMode.one ? Icons.repeat_one_rounded : Icons.repeat_rounded,
+                icon: mode == LoopMode.one
+                    ? Icons.repeat_one_rounded
+                    : Icons.repeat_rounded,
                 active: mode != LoopMode.off,
                 tooltip: switch (mode) {
                   LoopMode.off => 'Ripeti: no',
@@ -203,11 +239,21 @@ class _NowPlaying extends StatelessWidget {
         const SizedBox(height: 14),
         Wrap(spacing: 12, runSpacing: 12, children: [
           TvPillButton(
+              icon: Icons.edit_note,
+              label: 'Modifica coda',
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const TvTrackEditor()))),
+          TvPillButton(
+              icon: Icons.bedtime,
+              label: 'Timer',
+              onTap: () => openTvControlCenter(context, TvTool.timer)),
+          TvPillButton(
             icon: Icons.lyrics_rounded,
             label: 'Testo',
             onTap: () => Navigator.of(context).push(PageRouteBuilder(
               pageBuilder: (_, __, ___) => const FullscreenLyricsView(),
-              transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+              transitionsBuilder: (_, a, __, c) =>
+                  FadeTransition(opacity: a, child: c),
             )),
           ),
           if (m != null) _LikeButton(mi: m),
@@ -217,7 +263,8 @@ class _NowPlaying extends StatelessWidget {
               label: 'Scarica',
               onTap: () {
                 final t = mediaItemToTrack(m);
-                showDownloadMenu(context, artist: m.artist ?? '', album: m.album ?? '', track: t);
+                showDownloadMenu(context,
+                    artist: m.artist ?? '', album: m.album ?? '', track: t);
               },
             ),
           TvPillButton(
@@ -249,6 +296,7 @@ class _ProgressState extends State<_Progress> {
     super.initState();
     tvMarkSelfHighlighted(_node);
   }
+
   Duration? _pending;
   Timer? _commit;
 
@@ -267,14 +315,17 @@ class _ProgressState extends State<_Progress> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent e, ProgressBarStreams? p) {
-    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent)
+      return KeyEventResult.ignored;
     final player = context.read<BloomeePlayerCubit>().bloomeePlayer;
     final key = e.logicalKey;
-    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
+    if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight) {
       final dur = p?.duration ?? Duration.zero;
       if (dur == Duration.zero) return KeyEventResult.handled;
       final step = Duration(seconds: e is KeyRepeatEvent ? 20 : 10);
-      var target = (_pending ?? p?.position ?? Duration.zero) + (key == LogicalKeyboardKey.arrowRight ? step : -step);
+      var target = (_pending ?? p?.position ?? Duration.zero) +
+          (key == LogicalKeyboardKey.arrowRight ? step : -step);
       if (target < Duration.zero) target = Duration.zero;
       if (target > dur) target = dur;
       setState(() => _pending = target);
@@ -303,7 +354,9 @@ class _ProgressState extends State<_Progress> {
         final p = snap.data;
         final dur = p?.duration ?? Duration.zero;
         final pos = _pending ?? p?.position ?? Duration.zero;
-        final frac = dur.inMilliseconds == 0 ? 0.0 : (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0);
+        final frac = dur.inMilliseconds == 0
+            ? 0.0
+            : (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0);
         return Focus(
           focusNode: _node,
           onFocusChange: (f) => setState(() => _focused = f),
@@ -314,7 +367,9 @@ class _ProgressState extends State<_Progress> {
             decoration: BoxDecoration(
               color: _focused ? TvColors.surfaceHi : Colors.transparent,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _focused ? TvColors.accent : Colors.transparent, width: 2.5),
+              border: Border.all(
+                  color: _focused ? TvColors.accent : Colors.transparent,
+                  width: 2.5),
             ),
             child: Column(children: [
               LayoutBuilder(builder: (_, c) {
@@ -322,18 +377,25 @@ class _ProgressState extends State<_Progress> {
                 return SizedBox(
                   height: 18,
                   child: Stack(alignment: Alignment.centerLeft, children: [
-                    Container(height: 6, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(3))),
+                    Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(3))),
                     Container(
                         height: 6,
                         width: w * frac,
-                        decoration: BoxDecoration(color: TvColors.accent, borderRadius: BorderRadius.circular(3))),
+                        decoration: BoxDecoration(
+                            color: TvColors.accent,
+                            borderRadius: BorderRadius.circular(3))),
                     Positioned(
                       left: (w * frac - 9).clamp(0.0, w - 18),
                       child: Container(
                         width: 18,
                         height: 18,
                         decoration: BoxDecoration(
-                            color: _focused ? Colors.white : TvColors.accent, shape: BoxShape.circle),
+                            color: _focused ? Colors.white : TvColors.accent,
+                            shape: BoxShape.circle),
                       ),
                     ),
                   ]),
@@ -341,10 +403,15 @@ class _ProgressState extends State<_Progress> {
               }),
               const SizedBox(height: 8),
               Row(children: [
-                Text(_fmt(pos), style: TvText.body.copyWith(color: _pending != null ? TvColors.accent : TvColors.textDim)),
+                Text(_fmt(pos),
+                    style: TvText.body.copyWith(
+                        color: _pending != null
+                            ? TvColors.accent
+                            : TvColors.textDim)),
                 Expanded(
                   child: Text(_focused ? '← indietro 10 s · avanti 10 s →' : '',
-                      textAlign: TextAlign.center, style: TvText.body.copyWith(fontSize: 14)),
+                      textAlign: TextAlign.center,
+                      style: TvText.body.copyWith(fontSize: 14)),
                 ),
                 Text(_fmt(dur), style: TvText.body),
               ]),
@@ -385,7 +452,7 @@ class _RoundButtonState extends State<_RoundButton> {
     // Come i pulsanti a pillola: pieno rosa solo con il focus; il pulsante
     // principale (Play) ha il bordo rosa, mai il fondo bianco.
     final fg = _focused
-        ? Colors.white
+        ? TvColors.bg
         : (widget.primary || widget.active ? TvColors.accent : TvColors.text);
     return Padding(
       padding: const EdgeInsets.only(right: 16),
@@ -395,6 +462,7 @@ class _RoundButtonState extends State<_RoundButton> {
           skipTraversal: true,
           onFocusChange: (f) => setState(() => _focused = f),
           child: TvFocusable(
+            semanticLabel: widget.tooltip,
             onTap: widget.onTap,
             scaleOnFocus: 1.08,
             borderRadius: BorderRadius.circular(size),
@@ -405,7 +473,10 @@ class _RoundButtonState extends State<_RoundButton> {
                 shape: BoxShape.circle,
                 color: _focused ? TvColors.accent : TvColors.surfaceHi,
                 border: Border.all(
-                    color: widget.primary || _focused ? TvColors.accent : Colors.transparent, width: 2),
+                    color: widget.primary || _focused
+                        ? TvColors.accent
+                        : Colors.transparent,
+                    width: 2),
               ),
               child: Icon(widget.icon, size: size * 0.55, color: fg),
             ),
@@ -443,7 +514,9 @@ class _LikeButtonState extends State<_LikeButton> {
 
   Future<void> _load() async {
     try {
-      final v = await context.read<LibraryItemsCubit>().isTrackLiked(mediaItemToTrack(widget.mi));
+      final v = await context
+          .read<LibraryItemsCubit>()
+          .isTrackLiked(mediaItemToTrack(widget.mi));
       if (mounted) setState(() => _liked = v);
     } catch (_) {}
   }
@@ -455,9 +528,14 @@ class _LikeButtonState extends State<_LikeButton> {
       label: _liked ? 'Nei preferiti' : 'Mi piace',
       onTap: () {
         final v = !_liked;
-        context.read<LibraryItemsCubit>().setTrackLiked(mediaItemToTrack(widget.mi), v);
+        final track = mediaItemToTrack(widget.mi);
+        context.read<LibraryItemsCubit>().setTrackLiked(track, v);
+        if (v)
+          TvSavedLibrary.instance
+              .addFavorite(TvReference.item(domain.MediaItem.track(track)));
         setState(() => _liked = v);
-        SnackbarService.showMessage(v ? 'Aggiunto ai preferiti' : 'Tolto dai preferiti');
+        SnackbarService.showMessage(
+            v ? 'Aggiunto ai preferiti' : 'Tolto dai preferiti');
       },
     );
   }
@@ -475,10 +553,14 @@ class _Queue extends StatelessWidget {
       children: [
         StreamBuilder<String>(
           stream: player.queueTitle,
-          builder: (_, s) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          builder: (_, s) =>
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Prossimi', style: TvText.title),
             if ((s.data ?? '').isNotEmpty)
-              Text('da ${s.data}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.body),
+              Text('da ${s.data}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TvText.body),
           ]),
         ),
         const SizedBox(height: 10),
@@ -492,7 +574,9 @@ class _Queue extends StatelessWidget {
                 builder: (context, ms) {
                   final current = ms.data?.id;
                   if (q.isEmpty) {
-                    return const TvMessage(icon: Icons.queue_music_rounded, text: 'La coda è vuota');
+                    return const TvMessage(
+                        icon: Icons.queue_music_rounded,
+                        text: 'La coda è vuota');
                   }
                   return ListView.builder(
                     padding: const EdgeInsets.only(bottom: 40),

@@ -1,4 +1,6 @@
+import 'tv_http.dart';
 import 'dart:convert';
+import 'package:Bloomee/tv/services/tv_catalog_cache.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
@@ -42,10 +44,17 @@ class YtRef {
 }
 
 /// Una sezione (riga) di YouTube Music: titolo + elementi.
+class YtSearchPage {
+  YtSearchPage(this.items, this.next);
+  final List<YtItem> items;
+  final String? next;
+}
+
 class YtSection {
   YtSection(this.title, this.items, {this.moreBrowseId, this.moreParams});
   final String title;
   final List<YtItem> items;
+
   /// Pagina con l'elenco completo (tutti gli album, tutti i brani…).
   final String? moreBrowseId;
   final String? moreParams;
@@ -54,7 +63,13 @@ class YtSection {
 /// Dati extra dell'artista: descrizione completa, ascoltatori mensili,
 /// iscritti, foto grande.
 class YtArtistInfo {
-  YtArtistInfo({this.name, this.description, this.monthlyListeners, this.subscribers, this.banner, this.sections = const []});
+  YtArtistInfo(
+      {this.name,
+      this.description,
+      this.monthlyListeners,
+      this.subscribers,
+      this.banner,
+      this.sections = const []});
   final String? name;
   final String? description;
   final String? monthlyListeners;
@@ -67,8 +82,12 @@ class YtArtistInfo {
 /// Echo Music). Con i cookie dell'account firma le richieste (SAPISIDHASH) e
 /// ottiene cronologia, Mi piace, playlist e home personalizzata.
 class YtMusicClient {
-  YtMusicClient({this.cookie = '', this.visitorData = '', this.dataSyncId = '', http.Client? client})
-      : _http = client ?? http.Client();
+  YtMusicClient(
+      {this.cookie = '',
+      this.visitorData = '',
+      this.dataSyncId = '',
+      http.Client? client})
+      : _http = client ?? tvHttpClient;
 
   final String cookie;
   final String visitorData;
@@ -86,7 +105,8 @@ class YtMusicClient {
     for (final part in cookie.split(';')) {
       final kv = part.trim().split('=');
       if (kv.length < 2) continue;
-      if (kv[0] == 'SAPISID' || kv[0] == '__Secure-3PAPISID') return kv.sublist(1).join('=');
+      if (kv[0] == 'SAPISID' || kv[0] == '__Secure-3PAPISID')
+        return kv.sublist(1).join('=');
     }
     return null;
   }
@@ -130,17 +150,37 @@ class YtMusicClient {
         if (_onBehalfOf != null) 'user': {'onBehalfOfUser': _onBehalfOf},
       };
 
-  Future<Map<String, dynamic>> _post(String endpoint, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _post(
+      String endpoint, Map<String, dynamic> body) async {
+    if (endpoint == 'account/account_menu') return _networkPost(endpoint, body);
+    if (endpoint == 'search') {
+      return TvCatalogCache.instance.search<Map<String, dynamic>>(
+          source: 'youtube',
+          key: TvCatalogCache.keyFor([cookie, dataSyncId, endpoint, body]),
+          load: () => _networkPost(endpoint, body));
+    }
+    return TvCatalogCache.instance.readThrough<Map<String, dynamic>>(
+        source: 'youtube',
+        key: TvCatalogCache.keyFor([cookie, dataSyncId, endpoint, body]),
+        load: () => _networkPost(endpoint, body));
+  }
+
+  Future<Map<String, dynamic>> _networkPost(
+      String endpoint, Map<String, dynamic> body) async {
     final r = await _http
         .post(Uri.parse('$_origin/youtubei/v1/$endpoint?prettyPrint=false'),
-            headers: _headers(), body: jsonEncode({'context': _context(), ...body}))
+            headers: _headers(),
+            body: jsonEncode({'context': _context(), ...body}))
         .timeout(const Duration(seconds: 25));
-    if (r.statusCode == 401 || r.statusCode == 403) throw const YtAuthException();
-    if (r.statusCode >= 300) throw Exception('YouTube Music $endpoint: HTTP ${r.statusCode}');
+    if (r.statusCode == 401 || r.statusCode == 403)
+      throw const YtAuthException();
+    if (r.statusCode >= 300)
+      throw Exception('YouTube Music $endpoint: HTTP ${r.statusCode}');
     return jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> browse(String browseId, {Map<String, dynamic>? extra}) =>
+  Future<Map<String, dynamic>> browse(String browseId,
+          {Map<String, dynamic>? extra}) =>
       _post('browse', {'browseId': browseId, ...?extra});
 
   // ── API di alto livello ──────────────────────────────────────────────
@@ -156,37 +196,58 @@ class YtMusicClient {
     return name;
   }
 
-  Future<List<YtSection>> home() async => parseSections(await browse('FEmusic_home'));
+  Future<List<YtSection>> home() async =>
+      parseSections(await browse('FEmusic_home'));
 
-  Future<List<YtItem>> history() async => _flatItems(await browse('FEmusic_history'));
+  Future<List<YtItem>> history() async => browseAll('FEmusic_history');
 
-  Future<List<YtItem>> likedSongs() async => _flatItems(await browse('VLLM'));
+  Future<List<YtItem>> likedSongs() async => browseAll('VLLM');
 
   Future<List<YtItem>> libraryPlaylists() async =>
-      _flatItems(await browse('FEmusic_liked_playlists')).where((i) => i.browseId != null).toList();
+      (await browseAll('FEmusic_liked_playlists'))
+          .where((i) => i.browseId != null)
+          .toList();
 
-  Future<List<YtItem>> libraryAlbums() async => _flatItems(await browse('FEmusic_liked_albums'));
+  Future<List<YtItem>> libraryAlbums() async =>
+      browseAll('FEmusic_liked_albums');
 
   Future<List<YtItem>> subscribedArtists() async =>
-      _flatItems(await browse('FEmusic_library_corpus_artists')).where((i) => i.browseId?.startsWith('UC') ?? false).toList();
+      (await browseAll('FEmusic_library_corpus_artists'))
+          .where((i) => i.browseId?.startsWith('UC') ?? false)
+          .toList();
 
   /// Brani di una playlist o di un album (browseId VL…/MPREb…).
-  Future<({String title, String? subtitle, String? thumbnail, List<YtItem> tracks})> collection(String browseId) async {
+  Future<
+      ({
+        String title,
+        String? subtitle,
+        String? thumbnail,
+        List<YtItem> tracks
+      })> collection(String browseId) async {
     final d = await browse(browseId);
     String title = '';
     String? subtitle;
     String? thumb;
     _walk(d, (m) {
-      for (final k in const ['musicResponsiveHeaderRenderer', 'musicDetailHeaderRenderer', 'musicEditablePlaylistDetailHeaderRenderer']) {
+      for (final k in const [
+        'musicResponsiveHeaderRenderer',
+        'musicDetailHeaderRenderer',
+        'musicEditablePlaylistDetailHeaderRenderer'
+      ]) {
         final h = m[k];
         if (h is Map && title.isEmpty) {
           title = _text(h['title']) ?? '';
-          subtitle = [_text(h['straplineTextOne']), _text(h['subtitle'])].whereType<String>().where((e) => e.isNotEmpty).join(' · ');
+          subtitle = [_text(h['straplineTextOne']), _text(h['subtitle'])]
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .join(' · ');
           thumb = _thumb(h['thumbnail']);
         }
       }
     });
-    final tracks = _flatItems(d).where((i) => i.videoId != null).toList();
+    final tracks = (await _collectPages(d, 'browse'))
+        .where((i) => i.videoId != null)
+        .toList();
     // Negli album i brani non hanno copertina propria: uso quella dell'album.
     final fixed = [
       for (final t in tracks)
@@ -198,8 +259,13 @@ class YtMusicClient {
                 subtitle: t.subtitle,
                 videoId: t.videoId,
                 thumbnail: thumb,
-                artists: t.artists.isEmpty && subtitle != null ? [YtRef(subtitle!.split(' · ').last, null)] : t.artists,
-                album: t.album ?? (browseId.startsWith('MPREb') ? YtRef(title, browseId) : null),
+                artists: t.artists.isEmpty && subtitle != null
+                    ? [YtRef(subtitle!.split(' · ').last, null)]
+                    : t.artists,
+                album: t.album ??
+                    (browseId.startsWith('MPREb')
+                        ? YtRef(title, browseId)
+                        : null),
                 duration: t.duration,
               ),
     ];
@@ -211,19 +277,25 @@ class YtMusicClient {
     final d = await browse(channelId);
     String? name, desc, listeners, subs, banner;
     _walk(d, (m) {
-      for (final k in const ['musicImmersiveHeaderRenderer', 'musicVisualHeaderRenderer']) {
+      for (final k in const [
+        'musicImmersiveHeaderRenderer',
+        'musicVisualHeaderRenderer'
+      ]) {
         final h = m[k];
         if (h is Map && name == null) {
           name = _text(h['title']);
           desc = _text(h['description']);
           listeners = _text(h['monthlyListenerCount']);
           final sb = h['subscriptionButton']?['subscribeButtonRenderer'];
-          if (sb is Map) subs = _text(sb['subscriberCountText']) ?? _text(sb['longSubscriberCountText']);
+          if (sb is Map)
+            subs = _text(sb['subscriberCountText']) ??
+                _text(sb['longSubscriberCountText']);
           banner = _thumb(h['thumbnail'], best: true);
         }
       }
       final about = m['musicDescriptionShelfRenderer'];
-      if (about is Map && (desc == null || desc!.isEmpty)) desc = _text(about['description']);
+      if (about is Map && (desc == null || desc!.isEmpty))
+        desc = _text(about['description']);
     });
     return YtArtistInfo(
       name: name,
@@ -244,11 +316,27 @@ class YtMusicClient {
   };
 
   /// Ricerca senza filtro: le sezioni come sul sito (Brani, Album, Artisti…).
-  Future<List<YtSection>> searchAll(String query) async => parseSections(await _post('search', {'query': query}));
+  Future<List<YtSection>> searchAll(String query) async =>
+      parseSections(await _post('search', {'query': query}));
+
+  Future<YtSearchPage> searchPage(String query,
+      {String? kind, String? continuation}) async {
+    final page = await _post('search', {
+      if (continuation != null)
+        'continuation': continuation
+      else ...{'query': query, if (kind != null) 'params': searchParams[kind]},
+    });
+    return YtSearchPage(
+        _flatItems(page),
+        _find(page, 'continuationCommand')?['token'] as String? ??
+            _find(page, 'nextContinuationData')?['continuation'] as String?);
+  }
 
   /// Ricerca filtrata per tipo ('song', 'album', 'artist', 'playlist').
   Future<List<YtItem>> searchType(String query, String kind) async =>
-      _flatItems(await _post('search', {'query': query, 'params': searchParams[kind]}));
+      _collectPages(
+          await _post('search', {'query': query, 'params': searchParams[kind]}),
+          'search');
 
   static (String, String?)? _browseOf(dynamic endpoint) {
     final b = endpoint is Map ? endpoint['browseEndpoint'] : null;
@@ -258,29 +346,38 @@ class YtMusicClient {
 
   /// Elenco completo di una pagina (discografia, playlist dei brani…),
   /// seguendo le pagine successive fino a [maxPages].
-  Future<List<YtItem>> browseAll(String browseId, {String? params, int maxPages = 20}) async {
+  Future<List<YtItem>> browseAll(String browseId,
+      {String? params, int maxPages = 20}) async {
+    return _collectPages(
+        await browse(browseId, extra: {if (params != null) 'params': params}),
+        'browse');
+  }
+
+  Future<List<YtItem>> _collectPages(
+      Map<String, dynamic> first, String endpoint) async {
     final out = <YtItem>[];
-    final seen = <String>{};
-    void add(List<YtItem> items) {
-      for (final i in items) {
-        if (seen.add('${i.videoId}|${i.browseId}|${i.title}')) out.add(i);
+    final seenItems = <String>{}, seenTokens = <String>{};
+    var page = first;
+    while (true) {
+      for (final item in _flatItems(page)) {
+        if (seenItems.add('${item.videoId}|${item.browseId}|${item.title}'))
+          out.add(item);
       }
-    }
-    var d = await browse(browseId, extra: {if (params != null) 'params': params});
-    for (var page = 0; page < maxPages; page++) {
-      add(_flatItems(d));
-      final token = _find(d, 'continuationCommand')?['token'] as String? ??
-          _find(d, 'nextContinuationData')?['continuation'] as String?;
-      if (token == null) break;
-      d = await _post('browse', {'continuation': token});
+      final token = _find(page, 'continuationCommand')?['token'] as String? ??
+          _find(page, 'nextContinuationData')?['continuation'] as String?;
+      if (token == null || !seenTokens.add(token)) break;
+      page = await _post(endpoint, {'continuation': token});
     }
     return out;
   }
 
   /// Cerca il canale di un artista per nome (quando l'id del plugin non è un UC…).
   Future<String?> findArtistChannel(String name) async {
-    final d = await _post('search', {'query': name, 'params': 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D'});
-    final items = _flatItems(d).where((i) => i.browseId?.startsWith('UC') ?? false).toList();
+    final d = await _post('search',
+        {'query': name, 'params': 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D'});
+    final items = _flatItems(d)
+        .where((i) => i.browseId?.startsWith('UC') ?? false)
+        .toList();
     final n = name.toLowerCase().trim();
     for (final i in items) {
       if (i.title.toLowerCase().trim() == n) return i.browseId;
@@ -298,16 +395,23 @@ class YtMusicClient {
         final h = car['header']?['musicCarouselShelfBasicHeaderRenderer'];
         final title = _text(h?['title']) ?? '';
         final items = _itemsOf(car['contents']);
-        final more = _browseOf(h?['title']?['runs']?[0]?['navigationEndpoint']) ??
-            _browseOf(h?['moreContentButton']?['buttonRenderer']?['navigationEndpoint']);
-        if (items.isNotEmpty) out.add(YtSection(title, items, moreBrowseId: more?.$1, moreParams: more?.$2));
+        final more =
+            _browseOf(h?['title']?['runs']?[0]?['navigationEndpoint']) ??
+                _browseOf(h?['moreContentButton']?['buttonRenderer']
+                    ?['navigationEndpoint']);
+        if (items.isNotEmpty)
+          out.add(YtSection(title, items,
+              moreBrowseId: more?.$1, moreParams: more?.$2));
       }
       final shelf = m['musicShelfRenderer'];
       if (shelf is Map) {
         final items = _itemsOf(shelf['contents']);
-        final more = _browseOf(shelf['title']?['runs']?[0]?['navigationEndpoint']) ?? _browseOf(shelf['bottomEndpoint']);
+        final more =
+            _browseOf(shelf['title']?['runs']?[0]?['navigationEndpoint']) ??
+                _browseOf(shelf['bottomEndpoint']);
         if (items.isNotEmpty) {
-          out.add(YtSection(_text(shelf['title']) ?? '', items, moreBrowseId: more?.$1, moreParams: more?.$2));
+          out.add(YtSection(_text(shelf['title']) ?? '', items,
+              moreBrowseId: more?.$1, moreParams: more?.$2));
         }
       }
     }, stopAt: const {'musicCarouselShelfRenderer', 'musicShelfRenderer'});
@@ -318,11 +422,16 @@ class YtMusicClient {
     final out = <YtItem>[];
     final seen = <String>{};
     _walk(d, (m) {
-      for (final k in const ['musicResponsiveListItemRenderer', 'musicTwoRowItemRenderer']) {
+      for (final k in const [
+        'musicResponsiveListItemRenderer',
+        'musicTwoRowItemRenderer'
+      ]) {
         final r = m[k];
         if (r is Map) {
-          final it = k == 'musicTwoRowItemRenderer' ? _twoRow(r) : _responsive(r);
-          if (it != null && seen.add('${it.videoId}|${it.browseId}|${it.title}')) out.add(it);
+          final it =
+              k == 'musicTwoRowItemRenderer' ? _twoRow(r) : _responsive(r);
+          if (it != null &&
+              seen.add('${it.videoId}|${it.browseId}|${it.title}')) out.add(it);
         }
       }
     });
@@ -345,22 +454,27 @@ class YtMusicClient {
   YtItem? _responsive(Map r) {
     final cols = (r['flexColumns'] as List?) ?? const [];
     List runsOf(int i) => i < cols.length
-        ? ((cols[i]?['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs'] as List?) ?? const [])
+        ? ((cols[i]?['musicResponsiveListItemFlexColumnRenderer']?['text']
+                ?['runs'] as List?) ??
+            const [])
         : const [];
     final titleRuns = runsOf(0);
     if (titleRuns.isEmpty) return null;
     final title = titleRuns.map((e) => e['text']).join();
     final videoId = r['playlistItemData']?['videoId'] as String? ??
         _find(r['overlay'], 'videoId') as String? ??
-        titleRuns.first['navigationEndpoint']?['watchEndpoint']?['videoId'] as String?;
-    final browseId = r['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
+        titleRuns.first['navigationEndpoint']?['watchEndpoint']?['videoId']
+            as String?;
+    final browseId =
+        r['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
     final artists = <YtRef>[];
     YtRef? album;
     final sub = <String>[];
     for (var c = 1; c < cols.length; c++) {
       for (final run in runsOf(c)) {
         final text = run['text'] as String? ?? '';
-        final bid = run['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
+        final bid = run['navigationEndpoint']?['browseEndpoint']?['browseId']
+            as String?;
         if (bid != null && bid.startsWith('UC')) {
           artists.add(YtRef(text, bid));
         } else if (bid != null && bid.startsWith('MPREb')) {
@@ -373,15 +487,21 @@ class YtMusicClient {
     if (artists.isEmpty && videoId != null) {
       // Formato "Brano • Artista • 3:12": prendo l'artista dal sottotitolo.
       final parts = subtitle.split(' • ');
-      final a = parts.firstWhere((p) => !RegExp(r'^(Brano|Song|Video|Episodio)$').hasMatch(p), orElse: () => '');
+      final a = parts.firstWhere(_artistLabel, orElse: () => '');
       if (a.isNotEmpty) artists.add(YtRef(a, null));
     }
     Duration? dur;
     final fixed = r['fixedColumns'] as List?;
     final dText = fixed != null && fixed.isNotEmpty
-        ? _text(fixed[0]?['musicResponsiveListItemFixedColumnRenderer']?['text'])
+        ? _text(
+            fixed[0]?['musicResponsiveListItemFixedColumnRenderer']?['text'])
         : null;
-    dur = _parseDuration(dText);
+    dur = _parseDuration(dText) ??
+        subtitle
+            .split(' • ')
+            .map(_parseDuration)
+            .whereType<Duration>()
+            .firstOrNull;
     return YtItem(
       kind: videoId != null ? 'song' : _kindOf(browseId),
       title: title,
@@ -404,8 +524,10 @@ class YtMusicClient {
     final subRuns = (r['subtitle']?['runs'] as List?) ?? const [];
     final artists = <YtRef>[];
     for (final run in subRuns) {
-      final bid = run['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
-      if (bid != null && bid.startsWith('UC')) artists.add(YtRef(run['text'] as String, bid));
+      final bid =
+          run['navigationEndpoint']?['browseEndpoint']?['browseId'] as String?;
+      if (bid != null && bid.startsWith('UC'))
+        artists.add(YtRef(run['text'] as String, bid));
     }
     return YtItem(
       kind: videoId != null ? 'song' : _kindOf(browseId),
@@ -422,8 +544,18 @@ class YtMusicClient {
     if (browseId == null) return 'other';
     if (browseId.startsWith('UC')) return 'artist';
     if (browseId.startsWith('MPREb')) return 'album';
-    if (browseId.startsWith('VL') || browseId.startsWith('PL') || browseId.startsWith('RD')) return 'playlist';
+    if (browseId.startsWith('VL') ||
+        browseId.startsWith('PL') ||
+        browseId.startsWith('RD')) return 'playlist';
     return 'other';
+  }
+
+  static bool _artistLabel(String value) {
+    final text = value.trim();
+    return text.isNotEmpty &&
+        !RegExp(r'^(Brano|Song|Video|Episodio|Album|Single|EP)$|^\d+(:\d+)+$|^\d{4}$|riproduzioni|visualizzazioni|\bviews\b|\bplays\b|ascolti|iscritti|subscribers',
+                caseSensitive: false)
+            .hasMatch(text);
   }
 
   static Duration? _parseDuration(String? t) {
@@ -440,7 +572,8 @@ class YtMusicClient {
     if (t is! Map) return null;
     if (t['simpleText'] is String) return t['simpleText'] as String;
     final runs = t['runs'];
-    if (runs is List) return runs.map((e) => e is Map ? (e['text'] ?? '') : '').join();
+    if (runs is List)
+      return runs.map((e) => e is Map ? (e['text'] ?? '') : '').join();
     return null;
   }
 
@@ -452,7 +585,9 @@ class YtMusicClient {
     if (url == null) return null;
     if (url.startsWith('//')) url = 'https:$url';
     final size = best ? 1200 : 544;
-    return url.replaceAll(RegExp(r'=w\d+-h\d+'), '=w$size-h$size').replaceAll(RegExp(r'=s\d+'), '=s$size');
+    return url
+        .replaceAll(RegExp(r'=w\d+-h\d+'), '=w$size-h$size')
+        .replaceAll(RegExp(r'=s\d+'), '=s$size');
   }
 
   static dynamic _find(dynamic node, String key) {
@@ -473,7 +608,8 @@ class YtMusicClient {
 
   /// Visita in profondità; non scende dentro le chiavi in [stopAt] (le
   /// gestisce il chiamante).
-  static void _walk(dynamic node, void Function(Map m) f, {Set<String> stopAt = const {}}) {
+  static void _walk(dynamic node, void Function(Map m) f,
+      {Set<String> stopAt = const {}}) {
     if (node is Map) {
       f(node);
       for (final e in node.entries) {
@@ -488,8 +624,9 @@ class YtMusicClient {
   }
 }
 
-class YtAuthException implements Exception {
+class YtAuthException implements TvAuthenticationFailure {
   const YtAuthException();
   @override
-  String toString() => 'Sessione YouTube scaduta: accedi di nuovo da Impostazioni';
+  String toString() =>
+      'Sessione YouTube scaduta: accedi di nuovo da Impostazioni';
 }

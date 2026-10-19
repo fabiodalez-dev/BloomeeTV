@@ -28,12 +28,12 @@ import 'package:Bloomee/core/theme/app_theme.dart';
 import 'package:Bloomee/utils/load_image.dart';
 import 'package:Bloomee/utils/pallete_generator.dart';
 import 'package:responsive_framework/responsive_framework.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../blocs/media_player/bloomee_player_cubit.dart';
 import '../../blocs/mini_player/mini_player_cubit.dart';
 import 'player_views/fullscreen_lyrics_view.dart';
 
 import 'package:Bloomee/tv/tv_focus.dart';
+
 class AudioPlayerView extends StatefulWidget {
   const AudioPlayerView({super.key});
 
@@ -99,20 +99,20 @@ class _AudioPlayerViewState extends State<AudioPlayerView>
                     (snap.data?.id.startsWith('jellyfin::') ?? false))
                 ? const SizedBox.shrink()
                 : IconButton(
-            onPressed: () {
-              final mi = musicPlayer.mediaItem.valueOrNull;
-              if (mi != null) {
-                showSegmentsSheet(
-                  context,
-                  trackId: mi.id,
-                  trackDuration: mi.duration ?? Duration.zero,
-                  onSeek: (pos) => musicPlayer.seek(pos),
-                );
-              }
-            },
-            icon: const Icon(MingCute.list_check_3_line,
-                size: 22, color: Default_Theme.primaryColor1),
-          ),
+                    onPressed: () {
+                      final mi = musicPlayer.mediaItem.valueOrNull;
+                      if (mi != null) {
+                        showSegmentsSheet(
+                          context,
+                          trackId: mi.id,
+                          trackDuration: mi.duration ?? Duration.zero,
+                          onSeek: (pos) => musicPlayer.seek(pos),
+                        );
+                      }
+                    },
+                    icon: const Icon(MingCute.list_check_3_line,
+                        size: 22, color: Default_Theme.primaryColor1),
+                  ),
           ),
           IconButton(
             onPressed: () =>

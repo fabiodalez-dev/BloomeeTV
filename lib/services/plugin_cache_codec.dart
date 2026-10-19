@@ -370,3 +370,10 @@ List<ChartSummary> _parseChartListCache(String jsonBlob) {
     rethrow;
   }
 }
+
+/// Stable codecs reused by profile-scoped TV collections.
+Map<String, dynamic> tvTrackToJson(Track track) => _trackToJson(track);
+Track tvTrackFromJson(Map<String, dynamic> value) => _trackFromJson(value);
+Map<String, dynamic> tvMediaToJson(MediaItem item) => _mediaItemToJson(item);
+MediaItem tvMediaFromJson(Map<String, dynamic> value) =>
+    _mediaItemFromJson(value);

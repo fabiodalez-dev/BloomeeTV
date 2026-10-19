@@ -26,7 +26,6 @@ import 'package:Bloomee/tv/tv_mode.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
 import 'package:icons_plus/icons_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class AlbumView extends StatefulWidget {
   final AlbumSummary album;
@@ -559,7 +558,9 @@ class _AlbumHeaderContent extends StatelessWidget {
             icon: Icons.download_rounded,
             label: 'Scarica',
             onTap: () => showDownloadMenu(context,
-                artist: artists, album: title, albumTracks: () async => List.of(tracks)),
+                artist: artists,
+                album: title,
+                albumTracks: () async => List.of(tracks)),
           ),
         if (url != null && !TvMode.isTv)
           _PremiumCircularButton(

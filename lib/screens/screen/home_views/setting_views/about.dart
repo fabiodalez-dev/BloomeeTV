@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:Bloomee/l10n/app_localizations.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'dart:ui';
 import 'dart:math';
 
@@ -234,7 +233,8 @@ class About extends StatelessWidget {
                       text: 'Linkedin',
                       tooltip: l10n.aboutCreativeHighlights,
                       onTap: () {
-                        openLink(Uri.parse('https://linkedin.com/in/iamhemantindia'));
+                        openLink(Uri.parse(
+                            'https://linkedin.com/in/iamhemantindia'));
                       }),
                 ],
               )
@@ -278,7 +278,8 @@ class About extends StatelessWidget {
               // increase the ink response radius to match the larger pill
               borderRadius: BorderRadius.circular(32.0),
               onTap: () {
-                openLink(Uri.parse("https://hemantkarya.github.io/BloomeeTunes/"));
+                openLink(
+                    Uri.parse("https://hemantkarya.github.io/BloomeeTunes/"));
               },
               child: Container(
                 // increased padding for a larger touch target

@@ -109,11 +109,17 @@ class TrackDAO {
   /// Full-text search by title or artists using Isar's indexed value scan.
   ///
   /// Returns up to [limit] results (default 50). Pass 0 for unlimited.
-  Future<List<TrackDB>> searchTracks(String query, {int limit = 50}) async {
+  Future<List<TrackDB>> searchTracks(String query,
+      {int limit = 50, int offset = 0}) async {
     if (query.trim().isEmpty) return [];
     final isar = await _db;
-    final q = isar.trackDBs.filter().titleContains(query, caseSensitive: false);
-    return limit == 0 ? q.findAll() : q.limit(limit).findAll();
+    final q = isar.trackDBs
+        .filter()
+        .titleContains(query, caseSensitive: false)
+        .or()
+        .artistsElement((a) => a.nameContains(query, caseSensitive: false));
+    final page = q.offset(offset < 0 ? 0 : offset);
+    return limit == 0 ? page.findAll() : page.limit(limit).findAll();
   }
 
   // ── Purge ─────────────────────────────────────────────────────────────────

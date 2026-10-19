@@ -8,6 +8,8 @@ import 'package:Bloomee/tv/screens/tv_artist_screen.dart';
 import 'package:Bloomee/tv/tv_config.dart';
 import 'package:Bloomee/tv/ui/tv_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:Bloomee/tv/screens/tv_control_center.dart';
+import 'package:Bloomee/tv/services/tv_saved_library.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -16,18 +18,23 @@ const _channel = MethodChannel('bloomee_tv/voice');
 /// Accesso a YouTube Music: apre la pagina di login Google, poi salva i
 /// cookie e il nome dell'account. true se riuscito.
 Future<bool> loginYouTube() async {
+  final profile = TvConfig.profileId;
   try {
     final r = await _channel.invokeMethod<Map>('ytLogin');
     if (r == null) return false;
     final cookie = r['cookie'] as String? ?? '';
     final visitor = r['visitorData'] as String? ?? '';
     final dataSync = r['dataSyncId'] as String? ?? '';
-    final c = YtMusicClient(cookie: cookie, visitorData: visitor, dataSyncId: dataSync);
+    final c = YtMusicClient(
+        cookie: cookie, visitorData: visitor, dataSyncId: dataSync);
     final name = await c.accountName() ?? 'account Google';
-    await TvConfig.saveYouTube(cookie: cookie, visitor: visitor, dataSync: dataSync, name: name);
+    if (profile != TvConfig.profileId) return false;
+    await TvConfig.saveYouTube(
+        cookie: cookie, visitor: visitor, dataSync: dataSync, name: name);
     return true;
   } catch (e) {
-    SnackbarService.showMessage('Accesso YouTube non riuscito: $e', duration: const Duration(seconds: 5));
+    SnackbarService.showMessage('Accesso YouTube non riuscito: $e',
+        duration: const Duration(seconds: 5));
     return false;
   }
 }
@@ -50,7 +57,9 @@ Future<void> logoutYouTube() async {
 }
 
 /// Riproduce una lista di elementi YouTube (solo i brani).
-void playYtItems(BuildContext context, List<YtItem> items, int index, String title, {bool shuffle = false}) {
+void playYtItems(
+    BuildContext context, List<YtItem> items, int index, String title,
+    {bool shuffle = false}) {
   final songs = items.where((i) => i.videoId != null).toList();
   if (songs.isEmpty) return;
   final start = index < items.length ? songs.indexOf(items[index]) : 0;
@@ -63,38 +72,55 @@ void playYtItems(BuildContext context, List<YtItem> items, int index, String tit
 }
 
 /// Apre un elemento YouTube: brano = suona, album/playlist = pagina, artista = pagina artista.
-void openYtItem(BuildContext context, YtItem it, List<YtItem> context_, String listTitle) {
+void openYtItem(
+    BuildContext context, YtItem it, List<YtItem> context_, String listTitle) {
   switch (it.kind) {
     case 'song':
       playYtItems(context, context_, context_.indexOf(it), listTitle);
     case 'artist':
       Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => TvArtistScreen(artist: it.toArtist(), pluginId: kYtMusicPluginId)));
+          builder: (_) => TvArtistScreen(
+              artist: it.toArtist(), pluginId: kYtMusicPluginId)));
     default:
       if (it.browseId != null) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => TvYtCollectionScreen(browseId: it.browseId!, fallbackTitle: it.title)));
+        Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => TvYtCollectionScreen(
+                browseId: it.browseId!, fallbackTitle: it.title)));
       }
   }
 }
 
 /// Card per un elemento YouTube.
-Widget ytCard(BuildContext context, YtItem it, List<YtItem> all, String listTitle, {VoidCallback? onFocused}) {
+Widget ytCard(
+    BuildContext context, YtItem it, List<YtItem> all, String listTitle,
+    {VoidCallback? onFocused}) {
   return TvCard(
     title: it.title,
-    subtitle: it.kind == 'artist' ? 'Artista' : (it.artistNames.isNotEmpty ? it.artistNames : it.subtitle),
+    subtitle: it.kind == 'artist'
+        ? 'Artista'
+        : (it.artistNames.isNotEmpty ? it.artistNames : it.subtitle),
     imageUrl: it.thumbnail,
     circle: it.kind == 'artist',
     badge: it.kind == 'song' ? Icons.play_arrow_rounded : null,
     onFocused: onFocused,
     onTap: () => openYtItem(context, it, all, listTitle),
-    onLongPress: it.kind == 'album'
-        ? () => showDownloadMenu(context,
-            artist: it.artistNames.isNotEmpty ? it.artistNames : it.subtitle.split(' • ').last,
-            album: it.title,
-            albumTracks: it.browseId == null ? null : () => ytCollectionTracks(it.browseId!))
-        : (it.kind == 'song'
-            ? () => showDownloadMenu(context, artist: it.artistNames, album: it.album?.name ?? '', track: it.toTrack())
-            : null),
+    onLongPress: () => showTvReferenceMenu(
+        context, TvReference.item(it.toMedia()),
+        download: it.kind == 'album'
+            ? () => showDownloadMenu(context,
+                artist: it.artistNames.isNotEmpty
+                    ? it.artistNames
+                    : it.subtitle.split(' • ').last,
+                album: it.title,
+                albumTracks: it.browseId == null
+                    ? null
+                    : () => ytCollectionTracks(it.browseId!))
+            : (it.kind == 'song'
+                ? () => showDownloadMenu(context,
+                    artist: it.artistNames,
+                    album: it.album?.name ?? '',
+                    track: it.toTrack())
+                : null)),
   );
 }
 
@@ -162,7 +188,10 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
           Wrap(
             spacing: 22,
             runSpacing: 14,
-            children: [for (final it in items) SizedBox(height: 250, child: ytCard(context, it, items, title))],
+            children: [
+              for (final it in items)
+                SizedBox(height: 250, child: ytCard(context, it, items, title))
+            ],
           ),
         ],
       );
@@ -174,9 +203,17 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(48, 12, 48, 12),
           child: Row(children: [
-            TvPillButton(icon: Icons.play_arrow_rounded, label: 'Riproduci tutto', primary: true, onTap: () => playYtItems(context, items, 0, title)),
+            TvPillButton(
+                icon: Icons.play_arrow_rounded,
+                label: 'Riproduci tutto',
+                primary: true,
+                onTap: () => playYtItems(context, items, 0, title)),
             const SizedBox(width: 12),
-            TvPillButton(icon: Icons.shuffle_rounded, label: 'Casuale', onTap: () => playYtItems(context, items, 0, title, shuffle: true)),
+            TvPillButton(
+                icon: Icons.shuffle_rounded,
+                label: 'Casuale',
+                onTap: () =>
+                    playYtItems(context, items, 0, title, shuffle: true)),
             const SizedBox(width: 12),
             TvPillButton(
               icon: Icons.download_rounded,
@@ -186,7 +223,8 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
                   album: '',
                   listTitle: title,
                   listTracks: [for (final t in items) t.toTrack()],
-                  albumTracks: () async => [for (final t in items) t.toTrack()]),
+                  albumTracks: () async =>
+                      [for (final t in items) t.toTrack()]),
             ),
           ]),
         ),
@@ -197,10 +235,16 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
             itemBuilder: (_, i) => TvTrackTile(
               index: i + 1,
               title: items[i].title,
-              subtitle: [items[i].artistNames, if (items[i].album != null) items[i].album!.name].where((e) => e.isNotEmpty).join(' · '),
+              subtitle: [
+                items[i].artistNames,
+                if (items[i].album != null) items[i].album!.name
+              ].where((e) => e.isNotEmpty).join(' · '),
               duration: items[i].duration,
               onTap: () => playYtItems(context, items, i, title),
-              onLongPress: () => showDownloadMenu(context, artist: items[i].artistNames, album: items[i].album?.name ?? '', track: items[i].toTrack()),
+              onLongPress: () => showDownloadMenu(context,
+                  artist: items[i].artistNames,
+                  album: items[i].album?.name ?? '',
+                  track: items[i].toTrack()),
             ),
           ),
         ),
@@ -220,14 +264,16 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
             child: Row(children: [
               const Text('Il mio YouTube', style: TvText.hero),
               const SizedBox(width: 20),
-              if (TvConfig.hasYouTube) Text(TvConfig.ytName, style: TvText.body),
+              if (TvConfig.hasYouTube)
+                Text(TvConfig.ytName, style: TvText.body),
             ]),
           ),
           if (!TvConfig.hasYouTube)
             Expanded(
               child: TvMessage(
                 icon: Icons.account_circle_rounded,
-                text: 'Collega il tuo account YouTube Music per vedere\ncronologia, Mi piace, playlist e artisti seguiti.',
+                text:
+                    'Collega il tuo account YouTube Music per vedere\ncronologia, Mi piace, playlist e artisti seguiti.',
                 action: TvPillButton(
                   icon: Icons.login_rounded,
                   label: 'Accedi con Google',
@@ -244,7 +290,8 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
               height: 64,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 48, vertical: 4),
                 children: [
                   for (final t in _YtTab.values)
                     Padding(
@@ -268,10 +315,14 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
                 future: _future,
                 builder: (context, snap) {
                   if (snap.connectionState != ConnectionState.done) {
-                    return const TvMessage(icon: Icons.hourglass_empty, text: 'Carico…', loading: true);
+                    return const TvMessage(
+                        icon: Icons.hourglass_empty,
+                        text: 'Carico…',
+                        loading: true);
                   }
                   if (snap.hasError) {
-                    return TvMessage(icon: Icons.cloud_off_rounded, text: '${snap.error}');
+                    return TvMessage(
+                        icon: Icons.cloud_off_rounded, text: '${snap.error}');
                   }
                   final data = snap.data;
                   if (data is List<YtSection>) {
@@ -283,13 +334,16 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
                             title: s.title,
                             onTitleTap: ytSectionMore(context, s),
                             itemCount: s.items.length,
-                            itemBuilder: (_, i) => ytCard(context, s.items[i], s.items, s.title),
+                            itemBuilder: (_, i) =>
+                                ytCard(context, s.items[i], s.items, s.title),
                           ),
                       ],
                     );
                   }
                   final items = (data as List<YtItem>?) ?? const [];
-                  if (items.isEmpty) return const TvMessage(icon: Icons.inbox_rounded, text: 'Niente da mostrare');
+                  if (items.isEmpty)
+                    return const TvMessage(
+                        icon: Icons.inbox_rounded, text: 'Niente da mostrare');
                   return _grid(items, _labels[_tab]!.$1);
                 },
               ),
@@ -303,7 +357,8 @@ class _TvYouTubeScreenState extends State<TvYouTubeScreen> {
 
 /// Playlist o album di YouTube Music: copertina, Riproduci/Casuale, brani.
 class TvYtCollectionScreen extends StatefulWidget {
-  const TvYtCollectionScreen({super.key, required this.browseId, this.fallbackTitle = ''});
+  const TvYtCollectionScreen(
+      {super.key, required this.browseId, this.fallbackTitle = ''});
   final String browseId;
   final String fallbackTitle;
 
@@ -330,9 +385,11 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
       body: FutureBuilder(
         future: _future,
         builder: (context, snap) {
-          if (snap.hasError) return TvMessage(icon: Icons.error_outline, text: '${snap.error}');
+          if (snap.hasError)
+            return TvMessage(icon: Icons.error_outline, text: '${snap.error}');
           if (snap.connectionState != ConnectionState.done) {
-            return const TvMessage(icon: Icons.hourglass_empty, text: 'Carico…', loading: true);
+            return const TvMessage(
+                icon: Icons.hourglass_empty, text: 'Carico…', loading: true);
           }
           final c = snap.data!;
           final title = c.title.isEmpty ? widget.fallbackTitle : c.title;
@@ -343,23 +400,34 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
               if (mounted) _playNode.requestFocus();
             });
           }
-          final artist = tracks.isNotEmpty && tracks.first.artistNames.isNotEmpty ? tracks.first.artistNames : (c.subtitle ?? '');
+          final artist =
+              tracks.isNotEmpty && tracks.first.artistNames.isNotEmpty
+                  ? tracks.first.artistNames
+                  : (c.subtitle ?? '');
           return TvCollectionLayout(
             cover: TvCover(c.thumbnail, size: 240, radius: 14),
             title: title,
-            meta: [if (c.subtitle != null) c.subtitle!, '${tracks.length} brani'].join(' · '),
+            meta: [
+              if (c.subtitle != null) c.subtitle!,
+              '${tracks.length} brani'
+            ].join(' · '),
             actions: [
               TvPillButton(
                 focusNode: _playNode,
                 icon: Icons.play_arrow_rounded,
                 label: 'Riproduci',
                 primary: true,
-                onTap: tracks.isEmpty ? null : () => playYtItems(context, tracks, 0, title),
+                onTap: tracks.isEmpty
+                    ? null
+                    : () => playYtItems(context, tracks, 0, title),
               ),
               TvPillButton(
                 icon: Icons.shuffle_rounded,
                 label: 'Casuale',
-                onTap: tracks.isEmpty ? null : () => playYtItems(context, tracks, 0, title, shuffle: true),
+                onTap: tracks.isEmpty
+                    ? null
+                    : () =>
+                        playYtItems(context, tracks, 0, title, shuffle: true),
               ),
               TvPillButton(
                 icon: Icons.download_rounded,
@@ -369,7 +437,8 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
                     album: isAlbum ? title : '',
                     listTitle: title,
                     listTracks: [for (final t in tracks) t.toTrack()],
-                    albumTracks: () async => [for (final t in tracks) t.toTrack()]),
+                    albumTracks: () async =>
+                        [for (final t in tracks) t.toTrack()]),
               ),
             ],
             itemCount: tracks.length,
@@ -379,7 +448,10 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
               subtitle: isAlbum ? null : tracks[i].artistNames,
               duration: tracks[i].duration,
               onTap: () => playYtItems(context, tracks, i, title),
-              onLongPress: () => showDownloadMenu(context, artist: tracks[i].artistNames, album: tracks[i].album?.name ?? '', track: tracks[i].toTrack()),
+              onLongPress: () => showDownloadMenu(context,
+                  artist: tracks[i].artistNames,
+                  album: tracks[i].album?.name ?? '',
+                  track: tracks[i].toTrack()),
             ),
           );
         },
@@ -391,7 +463,12 @@ class _TvYtCollectionScreenState extends State<TvYtCollectionScreen> {
 /// Elenco completo di una sezione di YouTube Music ("Album ›", "Singoli ›",
 /// "Brani più ascoltati ›"): tutti gli elementi, non solo quelli della riga.
 class TvYtAllScreen extends StatefulWidget {
-  const TvYtAllScreen({super.key, required this.title, required this.browseId, this.params, this.subtitle});
+  const TvYtAllScreen(
+      {super.key,
+      required this.title,
+      required this.browseId,
+      this.params,
+      this.subtitle});
   final String title;
   final String? subtitle;
   final String browseId;
@@ -402,7 +479,8 @@ class TvYtAllScreen extends StatefulWidget {
 }
 
 class _TvYtAllScreenState extends State<TvYtAllScreen> {
-  late final Future<List<YtItem>> _future = TvConfig.youtube.browseAll(widget.browseId, params: widget.params);
+  late final Future<List<YtItem>> _future =
+      TvConfig.youtube.browseAll(widget.browseId, params: widget.params);
 
   @override
   Widget build(BuildContext context) {
@@ -412,99 +490,134 @@ class _TvYtAllScreenState extends State<TvYtAllScreen> {
         future: _future,
         builder: (context, snap) {
           final items = snap.data ?? const <YtItem>[];
-          final songs = items.isNotEmpty && items.where((i) => i.kind == 'song').length > items.length / 2;
+          final songs = items.isNotEmpty &&
+              items.where((i) => i.kind == 'song').length > items.length / 2;
           final header = Padding(
             padding: const EdgeInsets.fromLTRB(48, 32, 48, 8),
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Flexible(child: Text(widget.title, style: TvText.hero, maxLines: 1, overflow: TextOverflow.ellipsis)),
+              Flexible(
+                  child: Text(widget.title,
+                      style: TvText.hero,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis)),
               const SizedBox(width: 16),
               if (snap.connectionState == ConnectionState.done)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Text(
-                      [if (widget.subtitle != null) widget.subtitle!, '${items.length} ${songs ? 'brani' : items.every((i) => i.kind == 'artist') ? 'artisti' : items.every((i) => i.kind == 'album') ? 'uscite' : 'elementi'}'].join(' · '),
+                      [
+                        if (widget.subtitle != null) widget.subtitle!,
+                        '${items.length} ${songs ? 'brani' : items.every((i) => i.kind == 'artist') ? 'artisti' : items.every((i) => i.kind == 'album') ? 'uscite' : 'elementi'}'
+                      ].join(' · '),
                       style: TvText.body),
                 ),
             ]),
           );
           if (snap.connectionState != ConnectionState.done) {
-            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              header,
-              const Expanded(child: TvMessage(icon: Icons.hourglass_empty, text: 'Carico tutto…', loading: true)),
-            ]);
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  header,
+                  const Expanded(
+                      child: TvMessage(
+                          icon: Icons.hourglass_empty,
+                          text: 'Carico tutto…',
+                          loading: true)),
+                ]);
           }
           if (snap.hasError || items.isEmpty) {
-            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              header,
-              Expanded(child: TvMessage(icon: Icons.error_outline, text: snap.hasError ? '${snap.error}' : 'Niente da mostrare')),
-            ]);
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  header,
+                  Expanded(
+                      child: TvMessage(
+                          icon: Icons.error_outline,
+                          text: snap.hasError
+                              ? '${snap.error}'
+                              : 'Niente da mostrare')),
+                ]);
           }
           if (songs) {
             final tracks = items.where((i) => i.kind == 'song').toList();
-            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              header,
-              Padding(
-                padding: const EdgeInsets.fromLTRB(48, 8, 48, 12),
-                child: Row(children: [
-                  TvPillButton(
-                      icon: Icons.play_arrow_rounded,
-                      label: 'Riproduci',
-                      primary: true,
-                      autofocus: true,
-                      onTap: () => playYtItems(context, tracks, 0, widget.title)),
-                  const SizedBox(width: 12),
-                  TvPillButton(
-                      icon: Icons.shuffle_rounded,
-                      label: 'Casuale',
-                      onTap: () => playYtItems(context, tracks, 0, widget.title, shuffle: true)),
-                  const SizedBox(width: 12),
-                  TvPillButton(
-                    icon: Icons.download_rounded,
-                    label: 'Scarica',
-                    onTap: () => showDownloadMenu(context,
-                        artist: '',
-                        album: '',
-                        listTitle: widget.title,
-                        listTracks: [for (final t in tracks) t.toTrack()],
-                        albumTracks: () async => [for (final t in tracks) t.toTrack()]),
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  header,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(48, 8, 48, 12),
+                    child: Row(children: [
+                      TvPillButton(
+                          icon: Icons.play_arrow_rounded,
+                          label: 'Riproduci',
+                          primary: true,
+                          autofocus: true,
+                          onTap: () =>
+                              playYtItems(context, tracks, 0, widget.title)),
+                      const SizedBox(width: 12),
+                      TvPillButton(
+                          icon: Icons.shuffle_rounded,
+                          label: 'Casuale',
+                          onTap: () => playYtItems(
+                              context, tracks, 0, widget.title,
+                              shuffle: true)),
+                      const SizedBox(width: 12),
+                      TvPillButton(
+                        icon: Icons.download_rounded,
+                        label: 'Scarica',
+                        onTap: () => showDownloadMenu(context,
+                            artist: '',
+                            album: '',
+                            listTitle: widget.title,
+                            listTracks: [for (final t in tracks) t.toTrack()],
+                            albumTracks: () async =>
+                                [for (final t in tracks) t.toTrack()]),
+                      ),
+                    ]),
                   ),
-                ]),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(48, 4, 48, 24),
-                  itemCount: tracks.length,
-                  itemBuilder: (_, i) => TvTrackTile(
-                    index: i + 1,
-                    title: tracks[i].title,
-                    subtitle: [tracks[i].artistNames, if (tracks[i].album != null) tracks[i].album!.name]
-                        .where((e) => e.isNotEmpty)
-                        .join(' · '),
-                    duration: tracks[i].duration,
-                    onTap: () => playYtItems(context, tracks, i, widget.title),
-                    onLongPress: () => showDownloadMenu(context,
-                        artist: tracks[i].artistNames, album: tracks[i].album?.name ?? '', track: tracks[i].toTrack()),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(48, 4, 48, 24),
+                      itemCount: tracks.length,
+                      itemBuilder: (_, i) => TvTrackTile(
+                        index: i + 1,
+                        title: tracks[i].title,
+                        subtitle: [
+                          tracks[i].artistNames,
+                          if (tracks[i].album != null) tracks[i].album!.name
+                        ].where((e) => e.isNotEmpty).join(' · '),
+                        duration: tracks[i].duration,
+                        onTap: () =>
+                            playYtItems(context, tracks, i, widget.title),
+                        onLongPress: () => showDownloadMenu(context,
+                            artist: tracks[i].artistNames,
+                            album: tracks[i].album?.name ?? '',
+                            track: tracks[i].toTrack()),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ]);
+                ]);
           }
-          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            header,
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.fromLTRB(48, 16, 48, 24),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 200,
-                  mainAxisExtent: 250,
-                  crossAxisSpacing: 22,
-                  mainAxisSpacing: 14,
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                header,
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(48, 16, 48, 24),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 200,
+                      mainAxisExtent: 250,
+                      crossAxisSpacing: 22,
+                      mainAxisSpacing: 14,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (_, i) =>
+                        ytCard(context, items[i], items, widget.title),
+                  ),
                 ),
-                itemCount: items.length,
-                itemBuilder: (_, i) => ytCard(context, items[i], items, widget.title),
-              ),
-            ),
-          ]);
+              ]);
         },
       ),
     );
@@ -512,7 +625,13 @@ class _TvYtAllScreenState extends State<TvYtAllScreen> {
 }
 
 /// Apre l'elenco completo di una sezione, se YouTube Music ne ha uno.
-VoidCallback? ytSectionMore(BuildContext context, YtSection s, {String? subtitle}) => s.moreBrowseId == null
-    ? null
-    : () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => TvYtAllScreen(title: s.title, subtitle: subtitle, browseId: s.moreBrowseId!, params: s.moreParams)));
+VoidCallback? ytSectionMore(BuildContext context, YtSection s,
+        {String? subtitle}) =>
+    s.moreBrowseId == null
+        ? null
+        : () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => TvYtAllScreen(
+                title: s.title,
+                subtitle: subtitle,
+                browseId: s.moreBrowseId!,
+                params: s.moreParams)));

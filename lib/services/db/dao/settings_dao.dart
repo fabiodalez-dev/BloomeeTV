@@ -7,6 +7,22 @@ class SettingsDAO {
 
   const SettingsDAO(this._db);
 
+  Future<void> putSettings(Map<String, String> values) async {
+    final isar = await _db;
+    await isar.writeTxn(() async {
+      for (final e in values.entries) {
+        await isar.appSettingsStrDBs
+            .put(AppSettingsStrDB(settingName: e.key, settingValue: e.value));
+      }
+    });
+  }
+
+  Future<void> removeSettingStr(String key) async {
+    final isar = await _db;
+    await isar.writeTxn(() =>
+        isar.appSettingsStrDBs.filter().settingNameEqualTo(key).deleteAll());
+  }
+
   // --------------- String settings ---------------
 
   Future<void> putSettingStr(String key, String value) async {

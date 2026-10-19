@@ -33,20 +33,19 @@ class ServiceLocator {
 
   // ── Plugin System Singletons ─────────────────────────────────────────────
 
-  static late final PluginService pluginService;
-  static late final PluginEventBus pluginEventBus;
-  static late final PluginStorageService pluginStorageService;
-  static late final PluginStorageDao pluginStorageDao;
-  static late final CacheDAO cacheDAO;
-  static late final PluginCacheRepository pluginCache;
-  static late final PluginRepositoryService pluginRepositoryService;
+  static late PluginService pluginService;
+  static late PluginEventBus pluginEventBus;
+  static late PluginStorageService pluginStorageService;
+  static late PluginStorageDao pluginStorageDao;
+  static late CacheDAO cacheDAO;
+  static late PluginCacheRepository pluginCache;
+  static late PluginRepositoryService pluginRepositoryService;
 
   /// Wire up all application dependencies.
   ///
   /// Safe to call multiple times; subsequent calls are no-ops.
   static Future<void> setup() async {
     if (_initialized) return;
-    _initialized = true;
 
     // ── Plugin system ──────────────────────────────────────────────────────
 
@@ -77,6 +76,7 @@ class ServiceLocator {
 
     // 4. Plugin service (main interface — initialize later with pluginsDir).
     pluginService = PluginService();
+    _initialized = true;
   }
 
   /// Initialize the plugin system.
@@ -96,6 +96,22 @@ class ServiceLocator {
 
     // 4. Start listening for storage mutation events (persist to Isar).
     pluginStorageService.startListening();
+  }
+
+  static Future<void> prepareProfileSwitch() async {
+    if (!_initialized) return;
+    await pluginEventBus.disconnect();
+    await pluginStorageService.drainAndStop();
+    await pluginCache.prepareProfileSwitch();
+    pluginCache.dispose();
+    await pluginService.dispose();
+    _initialized = false;
+  }
+
+  static Future<void> resetForProfile() async {
+    await prepareProfileSwitch();
+    await setup();
+    await initializePluginSystem();
   }
 
   /// Shutdown plugin system gracefully.

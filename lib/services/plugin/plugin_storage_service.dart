@@ -125,6 +125,12 @@ class PluginStorageService {
     }
   }
 
+  Future<void> drainAndStop() async {
+    await _eventSubscription?.cancel();
+    _eventSubscription = null;
+    await _writeChain;
+  }
+
   /// Stop listening and clean up.
   void dispose() {
     _eventSubscription?.cancel();
