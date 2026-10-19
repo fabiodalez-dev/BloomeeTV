@@ -1,163 +1,55 @@
 # 📺 Bloomee TV
 
-Bloomee TV is a fork of [BloomeeTunes](https://github.com/HemantKArya/BloomeeTunes) v3.0.4 by HemantKArya, redesigned for Android TV and Google TV and fully usable with the remote. The interface is in Italian.
+A music player for Android TV and Google TV, built to be used from the sofa with the remote. It brings together streaming from YouTube Music, your own library on Jellyfin and downloads through Lidarr, in one interface designed for the big screen. The interface is in Italian.
 
-What it adds on top of Bloomee:
-
-- TV interface: side menu, home made of rows, D-pad focus everywhere, on-screen grid keyboard, built-in voice search.
-- Artist pages with albums, singles, top songs loaded progressively, all songs, similar artists, plus monthly listeners, subscribers, biography and banner from YouTube Music.
-- YouTube Music account: sign in with Google on the TV to get your history, liked songs, playlists, albums, followed artists and personalized home.
-- Jellyfin: browse and stream your own music library (direct stream).
-- Lidarr: "Scarica questo album" sends any album to your Lidarr server.
-- Full media session metadata (title, artist, album, cover) for phone notifications and Google Home.
-
-Server addresses, API keys and the Google sign-in are entered in **Impostazioni** on the TV and stay on the device; nothing is bundled in the APK.
-
-Install the `armeabi-v7a` APK from the Releases page (Chromecast with Google TV and most TV boxes).
-
-License: GPL-2.0, same as the original project. All credit for Bloomee goes to its author; the original README follows.
-
----
-
-<div align="center">
-
-<img src="./assets/docs/bloomeetunes_new_banner.png" alt="BloomeeTunes Banner" width="100%">
-
-# 🌸 Bloomee 
-
-**A unified local and plugin-first streaming music player built with Flutter & Rust.**
-
-<p align="center"><img src=https://img.shields.io/sourceforge/dt/bloomee?style=for-the-badge&logoSize=auto&label=DOWNLOADS(SF)
- /> <a href="https://github.com/HemantKArya/BloomeeTunes/releases/latest"><img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/HemantKArya/BloomeeTunes/total?style=for-the-badge&label=DOWNLOADS(GH)" >
-<img alt="GitHub Release" src="https://img.shields.io/github/v/release/HemantKArya/BloomeeTunes?display_name=release&style=for-the-badge&color=f01d7c" ></a>
-<img alt="GitHub License" src="https://img.shields.io/github/license/HemantKArya/BloomeeTunes?style=for-the-badge&color=1881cc" > <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/HemantKArya/BloomeeTunes/checkout.yml?style=for-the-badge" > <br><img src=https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white > <img src=https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white /> <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black"/>
-</p>
-
-
-<a href="https://trendshift.io/repositories/11533" target="_blank"><img src="https://trendshift.io/api/badge/repositories/11533" alt="Bloomee on Trendshift" width="250" height="55"/></a>
-
- **Bloomee** is an experimental, open-source music player designed to give you absolute freedom over your audio. Seamlessly mix your **local device music** with an infinite universe of streams powered by a secure, **Rust-backed plugin system**. No ads, no interruptions—just your tunes, your way. 🌼🎵
-
-</div>
-
-<div align="center">
-  <p float="left">
-    <img src="./assets/docs/playlistview.png" width="48%" />
-    <img src="./assets/docs/artistview.png" width="48%" />
-  </p>
-  <p float="left">
-    <img src="./assets/docs/playerview.png" width="48%" />
-    <img src="./assets/docs/lyricsview1.png" width="48%" />
-<img src="./assets/docs/banner2BloomeScrnShot.png" width="90%"/>
-  </p>
-</div>
-
----
-> ⚠️ **SECURITY WARNING: BEWARE OF FAKE WEBSITES!** ⚠️    
-> Due to the app's popularity, several unofficial websites claim to be the "official" Bloomee site. The ONLY official websites maintained by me are:
-> 
-> - https://bloomeex.org
-> - https://hemantkarya.github.io/BloomeeTunes/
->
-> These two URLs are the only official and safe sites for Bloomee. Do not trust other websites claiming to be official — unofficial sites may distribute modified APKs or malware. I am **not responsible** for any damage, privacy loss, or issues caused by downloading the app from third-party sources.
----
-
-## 🚀 Features & Roadmap
-
-- [x] 🚫 **Ad-Free Experience:** Zero interruptions, just pure music.
-- [x] 🦀 **Plugins system:** Secure, auto-updating `.bex` plugin system for endless music sources.
-- [x] 📂 **Local Music:** Play your local offline music seamlessly alongside online streams.
-- [x] 🎤 **Karaoke-Style Lyrics:** Time-synced lyrics with manual offset adjustment.
-- [x] 🎛️ **Audio Equalizer:** Built-in Equalizer and customizable Crossfade transitions.
-- [x] 🔄 **Smart Replace:** Auto-recovery finds working streams if a playlist track goes dead.
-- [x] 📊 **Last.fm Scrobbling:** Automatically log your listening history (includes offline caching).
-- [x] 🎮 **Discord Rich Presence:** Show off your current tunes on your Discord profile.
-- [x] 🌍 **Global Charts:** Daily updated charts from installed plugins.
-- [x] 🖥️ **Cross-Platform:** Native media controls and shortcuts for Windows, Linux, and Android.
-- [x] 💾 **Backup & Restore:** Easily export/import your library and settings via JSON or M3U.
-- [x] 🤖 **AI-Based Recommendations:** Get smarter song suggestions (Last.fm/Plugin Based).
-- [x] 🆎 **Multi-Language Support:** Localized app interface for global users *(Implementing more languages..)*
-
----
-## 🌍 Language Support
-
-| Language | Native Name | Status |
-|----------|------------|--------|
-| 🇮🇳 Hindi | हिन्दी | ✅ Complete |
-| 🇺🇸 English | English | ✅ Complete |
-| 🇰🇷 Korean | 한국어 | ✅ Complete |
-| 🇩🇪 German | Deutsch | ✅ Complete |
-| 🇪🇸 Spanish | Español | ✅ Complete |
-| 🇯🇵 Japanese | 日本語 | ✅ Complete |
-
-> 🟢 All translations are fully completed and maintained, Still if you feel any language needs more thought then please feel free to open the issue.
----
-
-<h2 align="center">📥 Download & Install</h2>
-
-<h4 align="center">Available for Android, Windows & Linux (Dev) 😍</h4>
+Bloomee TV is a fork of [BloomeeTunes](https://github.com/HemantKArya/BloomeeTunes) 3.0.4 by HemantKArya: the player engine, the plugin system, lyrics, equalizer and much more come from Bloomee. I rebuilt the interface for the TV and added the integrations I needed at home.
 
 <p align="center">
-  <a href="https://github.com/HemantKArya/BloomeeTunes/releases/latest">
-    <img src="https://img.shields.io/badge/GitHub_Releases-100000?style=for-the-badge&logo=github&logoColor=white" height="40"/>
-  </a>
-  &nbsp;
-  <a href="https://sourceforge.net/projects/bloomee/files/latest/download">
-    <img alt="Download BloomeeTunes" src="https://a.fsdn.com/con/app/sf-download-button" height="40">
-  </a>
-</p>
-<p align="center">
-  <a href="https://apt.izzysoft.de/fdroid/index/apk/ls.bloomee.musicplayer">
-    <img alt="izzyondroid" src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroidButtonGreyBorder.svg" height="45"/>
-  </a>
+  <img src="assets/docs/tv/artist.jpg" width="49%" alt="Artist page">
+  <img src="assets/docs/tv/albums.jpg" width="49%" alt="All albums of an artist">
+  <img src="assets/docs/tv/search.jpg" width="49%" alt="Search">
+  <img src="assets/docs/tv/album.jpg" width="49%" alt="Album page">
 </p>
 
----
+## Features
 
-## 💖 Support the Development
+**Made for the remote**
+- Side menu always one arrow away, pages made of rows, focus that moves one row at a time and is always visible.
+- Player bar at the bottom reachable from every page, full screen player with queue, lyrics and equalizer.
+- Voice search and an on-screen grid keyboard.
 
-Bloomee is a passion project. I spend countless hours building, refining, and fixing bugs to give everyone a premium, ad-free music experience. If you love the app and want to see it grow, consider supporting my work! 
+**Search and artists**
+- Search with YouTube Music, results split into artists, albums, songs and playlists, with filters for each type.
+- Artist pages with monthly listeners, biography, top songs, albums, singles and EPs, videos and similar artists; every row opens the complete list.
 
-Every contribution, big or small, keeps the music playing. ☕🎶
+**Your music**
+- Sign in with Google on the TV to get your YouTube Music history, liked songs, playlists, saved albums, followed artists and personalized home.
+- Jellyfin library ("La tua musica") with direct streaming; Jellyfin results also appear in search.
 
-<p align="center">
-  <a href="https://liberapay.com/hemantkarya/donate">
-    <img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg">
-  </a>
-</p>
-<p align="center">
-  <img src="https://img.shields.io/liberapay/receives/hemantkarya?style=for-the-badge"> 
-  <img src="https://img.shields.io/liberapay/patrons/hemantkarya?style=for-the-badge">
-</p>
+**Downloads**
+- "Scarica" on every album and playlist: **Locale** saves the tracks on the TV for offline listening, **Lidarr** sends the album to your Lidarr server so it shows up in Jellyfin.
 
----
+**From Bloomee**
+- Ad-free streaming through plugins, daily charts, synced lyrics, 10-band equalizer, crossfade, Last.fm scrobbling, library backup and restore.
 
-## 🤝 Contribute to Bloomee
+## Install
 
-**Every note counts!** Whether you're a seasoned developer or a beginner (I am relatively new to Flutter myself!), your pull requests, bug reports, and feature suggestions are highly appreciated. 
+Download the `armeabi-v7a` APK from the [latest release](https://github.com/fabiodalez-dev/BloomeeTV/releases/latest) and sideload it, for example with `adb install`. It works on Chromecast with Google TV and most ARM TV boxes; updates install over the previous version and keep your settings.
 
-Contributing to Bloomee is a great way to learn **Flutter, clean architecture, and BLoC patterns** in a real-world codebase.
+Jellyfin, Lidarr and the Google sign-in are configured in **Impostazioni** on the TV and stay on the device: nothing is bundled in the APK. "Controlla aggiornamenti" checks this repository's releases.
 
-1. **Discuss:** Open an Issue first to discuss your idea.
-2. **Fork & Clone:** Fork the `main` branch.
-3. **Branch & Build:** Create your feature branch.
-4. **Pull Request:** Submit a PR and let your code join the Bloomee symphony!
+## Building
 
-*Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.*
+Bloomee TV is a Flutter app with a Rust core, like the original project. Build the TV APK with:
 
----
+```
+flutter build apk --release --target-platform android-arm --split-per-abi
+```
 
-## 📫 Get in Touch
+## Issues
 
-Have questions, feedback, or just want to say hi? Connect with me here:
+Bugs and ideas about Bloomee TV go in this repository's [issues](https://github.com/fabiodalez-dev/BloomeeTV/issues), not in the original Bloomee project.
 
-<div align="center">
+## Credits and license
 
-<a href="https://www.linkedin.com/in/iamhemantindia/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white"/></a>
-<a href="https://x.com/iamhemantindia/"><img src="https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white"/></a>
-<a href="https://instagram.com/iamhemantindia/"><img src="https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white"/></a>
-<a href="mailto:iamhemantindia@protonmail.com"><img src="https://img.shields.io/badge/ProtonMail-6D4AFF?style=for-the-badge&logo=protonmail&logoColor=white"/></a>
-
-</div>
-
-<p align="center"><i>Made with ❤️</i></p>
+Bloomee TV is based on [BloomeeTunes](https://github.com/HemantKArya/BloomeeTunes) by [HemantKArya](https://github.com/HemantKArya); all credit for the original app goes to him. Like the original, this fork is released under the [GPL-2.0](LICENSE) license.
