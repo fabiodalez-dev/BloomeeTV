@@ -108,3 +108,7 @@ APK ARMv7 finale compilato e installato in place con controllo firma, versione e
 ## Pubblicazione 1.2.0
 
 La release pubblica usa versione 1.2.0+7 (ARMv7 versionCode 1007), con lo stesso codice funzionale verificato nella build 1006. Per il pacchetto di pubblicazione sono stati ripetuti i 96 test Flutter e l’analisi statica (zero errori/warning, 251 info), quindi compilato l’APK release ARMv7. Verificati package, versione, ABI, assenza del flag debuggable e firma identica alle release precedenti. APK e SHA256SUMS.txt sono allegati alla release GitHub; il file locale tv-env.sh resta fuori dalla pubblicazione.
+
+## Pubblicazione 1.2.1
+
+Versione 1.2.1+8 (ARMv7 versionCode 1008): artista degli album YouTube Music preso dalla testata, pagine di ricerca in ritardo ignorate, radio della coda precedente scartata. Verifiche su host: 101 test Flutter con Flutter 3.35.4 e analisi statica senza errori o warning; i test di regressione su artista e radio falliscono sul codice di 1.2.0. Le correzioni non sono state provate su un Chromecast reale. L’APK firmato va compilato con la chiave delle release precedenti e allegato con SHA256SUMS.txt.
