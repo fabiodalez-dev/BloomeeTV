@@ -49,12 +49,12 @@ The TV player's **Mi piace** changes the local Bloomee library. It does not writ
 
 ## Install
 
-Download the APK from this fork's [latest release](https://github.com/fabiodalez-dev/BloomeeTV/releases/latest) and sideload it. Release 1.2.0 publishes `BloomeeTV-1.2.0-armeabi-v7a.apk`. Check the device's supported ABIs:
+Download the APK from this fork's [latest release](https://github.com/fabiodalez-dev/BloomeeTV/releases/latest) and sideload it. Release 1.2.1 publishes `BloomeeTV-1.2.1-armeabi-v7a.apk`. Check the device's supported ABIs:
 
 ```sh
 adb devices
 adb -s DEVICE_SERIAL shell getprop ro.product.cpu.abilist
-adb -s DEVICE_SERIAL install -r BloomeeTV-1.2.0-armeabi-v7a.apk
+adb -s DEVICE_SERIAL install -r BloomeeTV-1.2.1-armeabi-v7a.apk
 ```
 
 Replace `DEVICE_SERIAL` with the TV serial or network address. ARMv7 requires 32-bit ARM compatibility; ARM64-only devices require an `arm64-v8a` build. With the pinned Flutter 3.35.4 defaults, builds require Android 7.0 / API 24 or newer. Enable installation from the source used for sideloading.
