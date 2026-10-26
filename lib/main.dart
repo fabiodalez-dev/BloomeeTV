@@ -1,3 +1,5 @@
+import 'package:Bloomee/tv/services/tv_remote_server.dart';
+import 'package:Bloomee/tv/services/tv_remote_player.dart';
 import 'package:Bloomee/tv/services/tv_image_privacy.dart';
 import 'package:Bloomee/tv/services/tv_operations.dart';
 import 'package:Bloomee/tv/services/tv_cast_service.dart';
@@ -198,6 +200,7 @@ class _AppRuntimeState extends State<_AppRuntime> {
         TvProfiles.instance.onSwitch = _switch;
       }
       await setupPlayerCubit();
+      if (TvMode.isTv) attachTvRemote(bloomeePlayerCubit.bloomeePlayer);
       if (TvMode.isTv)
         await TvCastService.initialize((id, position) async {
           var track = await TrackDAO(DBProvider.db).getTrackByMediaId(id);
@@ -242,6 +245,7 @@ class _AppRuntimeState extends State<_AppRuntime> {
     await WidgetsBinding.instance.endOfFrame;
     try {
       await tvPairing.close();
+      await tvRemote.close();
       await player.prepareProfileSwitch();
       await TvImagePrivacy.clear();
       await ServiceLocator.prepareProfileSwitch();
@@ -258,6 +262,7 @@ class _AppRuntimeState extends State<_AppRuntime> {
       TvDiagnostics.instance.clear();
       await player.reloadProfile();
       await setupPlayerCubit();
+      if (TvMode.isTv) attachTvRemote(bloomeePlayerCubit.bloomeePlayer);
       GlobalRoutes.globalRouter.go('/Explore');
       if (old.guest) await TvConfig.secretStore.write(old.id, {});
       if (mounted)
@@ -275,6 +280,7 @@ class _AppRuntimeState extends State<_AppRuntime> {
       await TvConfig.load();
       await player.reloadProfile();
       await setupPlayerCubit();
+      if (TvMode.isTv) attachTvRemote(bloomeePlayerCubit.bloomeePlayer);
       if (mounted)
         setState(() {
           _epoch++;
@@ -367,6 +373,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       unawaited(tvPairing.close());
+      unawaited(tvRemote.close());
     }
     if (state == AppLifecycleState.resumed) {
       unawaited(_ensurePlayerHealthyOnResume());

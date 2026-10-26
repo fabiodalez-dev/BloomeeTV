@@ -220,6 +220,29 @@ class JellyfinClient {
         'SortBy': 'ParentIndexNumber,IndexNumber,SortName',
       });
 
+  /// Playlist order comes from the playlist endpoint, not a sorted library view.
+  Future<List<JfItem>> playlistTracks(String id) async {
+    final out = <JfItem>[];
+    var start = 0;
+    while (true) {
+      final data = await _get('/Playlists/$id/Items', {
+        'UserId': userId!,
+        'StartIndex': '$start',
+        'Limit': '100',
+        'Fields': 'Artists,AlbumArtist,AlbumId',
+      });
+      final items = (data['Items'] as List)
+          .map((v) => JfItem(Map<String, dynamic>.from(v as Map)))
+          .toList();
+      out.addAll(items.where((t) => t.type == 'Audio'));
+      start += items.length;
+      if (items.isEmpty ||
+          start >= ((data['TotalRecordCount'] as int?) ?? start) ||
+          start >= 10000) break;
+    }
+    return out;
+  }
+
   Future<List<JfItem>> search(String term,
           {int limit = 60,
           int start = 0,

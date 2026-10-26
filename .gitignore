@@ -142,3 +142,11 @@ app.*.symbols
 
 
 /assets/*.env
+# LG build dependencies and generated bundle
+webos/node_modules/
+webos/app.js
+webos/__pycache__/
+remote/android/key.properties
+
+# Machine-specific build environment
+/tv-env.sh

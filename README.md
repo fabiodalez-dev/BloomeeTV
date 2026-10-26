@@ -49,7 +49,7 @@ The TV player's **Mi piace** changes the local Bloomee library. It does not writ
 
 ## Install
 
-Download the APK from this fork's [latest release](https://github.com/fabiodalez-dev/BloomeeTV/releases/latest) and sideload it. Release 1.2.1 publishes `BloomeeTV-1.2.1-armeabi-v7a.apk`. Check the device's supported ABIs:
+Download the APK from this fork's [latest release](https://github.com/fabiodalez-dev/BloomeeTV/releases/latest) and sideload it. Release 1.2.1 publishes `BloomeeTV-1.2.1-armeabi-v7a.apk`. This tree retains its fixes for album artists, late search pages and stale autoplay radio, and adds Bloomee Remote support in 1.2.2, extended with phone search and playlists in 1.3.0. Check the device's supported ABIs:
 
 ```sh
 adb devices
@@ -87,11 +87,15 @@ On TV, **Controlla aggiornamenti** queries this fork’s GitHub releases, report
 | Back | Dismiss the player or navigate back; from root sections return toward Home and eventually exit. |
 | Progress bar | Focus it, then Left/Right seeks by 10 seconds; OK toggles playback. |
 
-## Phone input and Cast
+## Phone remote, input and Cast
+
+**Bloomee Remote** is a separate Android phone APK for play/pause, previous/next, seeking, player volume, shuffle, queue repeat and selecting queued tracks (first 500). Update the TV receiver from this tree first, then open **Centro TV → telefono → Collega Bloomee Remote** and enter the displayed address and six-digit code on the phone. Both devices must share a LAN. The code expires after five minutes; paired sessions last at most twelve hours and are revoked on TV app backgrounding, profile switch, a new code or **Disattiva telecomando**. The phone remembers the TV address; control tokens stay in memory. The LAN HTTP service is opt-in and does not expose Jellyfin/Google credentials or audio URLs. With Remote 1.1.0 and TV 1.3.0, the phone also searches songs/playlists across YouTube Music, Jellyfin and local music, opens configured account playlists, plays or queues results, and plays existing local or account playlists. Remote 1.1.1 simplifies the interface to browsing/playback; Android TV 1.3.1 and LG 0.4.1 also reject playlist creation or editing through the remote protocol.
+
+The [LG webOS edition](webos/README.md) includes the same protocol under **Impostazioni → Telecomando dal cellulare**, using port 18794. It requires the existing rooted webOS/Homebrew setup; the APK installs on the phone, while LG uses the IPK. The `webos/` source was imported from the local Bloomee webOS checkout at commit `0e5c6f3` (version 0.3.4), with remote support added as 0.3.5 and phone search/local playlists as 0.4.0. Physical Android TV and LG device verification of this remote remains outstanding.
 
 **Centro TV → telefono** displays a five-minute pairing QR and code for the same IPv4 LAN. The phone can submit non-secret text, which must be accepted on the TV keyboard. Passwords, Google cookies and API keys must be entered on the TV; this HTTP input endpoint is not a credential setup service.
 
-The Android media session publishes title, artist, display metadata, artwork and content ID. Cast Connect shares that existing session and explicitly maps title/artist/album/images to Cast's music-track metadata type. For authenticated Jellyfin or local artwork, the TV serves only the current cover from an opaque LAN URL, revoked on track changes, stop or profile switch; service credentials never enter that URL. Google's shared network notification controls its own presentation; valid Cast metadata alone does not guarantee it displays every field. In the real-phone check with build 1005 it still showed “Bloomee TV / Chromecast”, so this notification issue remains unresolved. This fork does not include a phone controller mode.
+The Android media session publishes title, artist, display metadata, artwork and content ID. Cast Connect shares that existing session and explicitly maps title/artist/album/images to Cast's music-track metadata type. For authenticated Jellyfin or local artwork, the TV serves only the current cover from an opaque LAN URL, revoked on track changes, stop or profile switch; service credentials never enter that URL. Google's shared network notification controls its own presentation; valid Cast metadata alone does not guarantee it displays every field. In the real-phone check with build 1005 it still showed “Bloomee TV / Chromecast”, so this notification issue remains unresolved. The separate [Bloomee Remote Android app](remote/README.md) controls playback and the queue on this receiver.
 
 A full Cast receiver also needs a compatible sender and Google Cast Console package/device registration for sideloaded builds. Installing this APK does not make it the receiver for another app’s Cast application ID. See [Google’s Cast Connect setup](https://developers.google.com/cast/docs/android_tv_receiver/core_features). Verify the actual phone notification as well as the TV session; metadata checks alone do not prove an end-to-end Cast session. Fire TV without Google Play Services keeps local playback and does not enable Cast Connect.
 

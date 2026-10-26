@@ -1,3 +1,4 @@
+import 'package:Bloomee/tv/services/tv_remote_server.dart';
 import 'dart:async';
 import 'package:Bloomee/tv/services/tv_cast_service.dart';
 import 'package:Bloomee/tv/screens/tv_settings_screen.dart';
@@ -228,6 +229,7 @@ class _TvControlCenterState extends State<TvControlCenter> {
         _workspace,
         TvProfiles.instance,
         tvPairing,
+        tvRemote,
         TvOperations.instance,
         TvDiagnostics.instance
       ]),
@@ -399,6 +401,16 @@ class _TvControlCenterState extends State<TvControlCenter> {
         }),
       ];
   List<Widget> _phone() => [
+        const Text('Telecomando musicale', style: TvText.title),
+        _text('Installa Bloomee Remote sul cellulare e collegalo alla stessa rete della TV. Il codice vale 5 minuti; dopo l’abbinamento i controlli restano attivi fino alla chiusura dell’app TV, per un massimo di 12 ore.'),
+        if (!tvRemote.active)
+          _action('Collega Bloomee Remote', () => tvRemote.start()),
+        if (tvRemote.active) ...[
+          _text('Indirizzo TV: ${tvRemote.address}\nCodice: ${tvRemote.code}'),
+          _action('Nuovo codice / scollega telefoni', () => tvRemote.start()),
+          _action('Disattiva telecomando', tvRemote.close),
+        ],
+        const SizedBox(height: 24),
         const Text('Scrivi dal telefono', style: TvText.title),
         _text(
             'Abbinamento temporaneo sulla rete di casa. In questa versione invia solo ricerche e indirizzi pubblici: password, cookie e chiavi API vanno inseriti direttamente sulla TV.'),
