@@ -420,7 +420,17 @@ def audio(req, start, video):
     return [data]
 
 
-THUMB_HOST = re.compile(r'^https://([a-z0-9-]+\.)*(googleusercontent\.com|ytimg\.com|ggpht\.com)/[^\s"<>]{1,600}$')
+THUMB_HOST = re.compile(r'^https://(lh[3-6]\.googleusercontent\.com|yt3\.googleusercontent\.com|yt3\.ggpht\.com|i\.ytimg\.com)/[^\s"<>]{1,600}$')
+THUMB_TYPES = ('image/jpeg', 'image/png', 'image/webp', 'image/gif')
+
+
+class _NoRedirect(youtube.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+# Thumbnails never follow redirects: a Location header could point anywhere.
+_thumb_opener = youtube.build_opener(_NoRedirect)
 
 
 def thumb(req, start):
@@ -433,15 +443,19 @@ def thumb(req, start):
     url = re.sub(r'=s\d+(?=[-&?]|$)', '=s60', url, count=1)
     limit(req, 'thumb:%d' % req.user['id'], 600, 3600)
     try:
-        with youtube.urlopen(youtube.Request(url, headers={'User-Agent': youtube.UA}), timeout=10) as r:
-            ctype = r.headers.get('Content-Type') or ''
+        with _thumb_opener.open(youtube.Request(url, headers={'User-Agent': youtube.UA}), timeout=10) as r:
+            if r.status != 200:
+                raise ValueError(r.status)
+            ctype = (r.headers.get('Content-Type') or '').split(';')[0].strip().lower()
             data = r.read(512 * 1024 + 1)
     except Exception:
         raise HTTPErr(502, 'Immagine non disponibile')
-    if not ctype.startswith('image/') or len(data) > 512 * 1024:
+    # Raster images only: an SVG served from this origin could run scripts.
+    if ctype not in THUMB_TYPES or len(data) > 512 * 1024:
         raise HTTPErr(502, 'Immagine non valida')
     start('200 OK', [('Content-Type', ctype), ('Content-Length', str(len(data))), ('Cache-Control', 'private, max-age=86400'),
-                     ('X-Content-Type-Options', 'nosniff')])
+                     ('X-Content-Type-Options', 'nosniff'), ('Content-Security-Policy', "default-src 'none'; sandbox"),
+                     ('Content-Disposition', 'inline; filename="thumb"')])
     return [data]
 
 

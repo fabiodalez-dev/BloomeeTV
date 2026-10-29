@@ -135,7 +135,9 @@ def clean_title(title):
 
 
 def find(con, video, title, artist, duration=None, album=None):
-    key = 'v:' + video if video else 'q:%s|%s|%s' % (title.lower(), artist.lower(), duration or '')
+    # Title and artist come from the browser: they are part of the key even with
+    # a videoId, so one user cannot attach wrong lyrics to a video for everyone.
+    key = '%s|%s|%s|%s' % (video or '', title.strip().lower(), artist.strip().lower(), int(duration or 0))
     row = con.execute('SELECT data, at FROM lyrics_cache WHERE key=?', (key,)).fetchone()
     if row:
         data = json.loads(row['data'])

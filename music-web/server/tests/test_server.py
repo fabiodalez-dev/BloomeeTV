@@ -324,6 +324,27 @@ class ThumbTests(Base):
     def test_needs_login(self):
         self.assertEqual(Client().call('GET', '/api/thumb?url=https://lh3.googleusercontent.com/x=w60-h60')[0], 401)
 
+    def fake(self, ctype, status=200):
+        r = FakeResponse(b'<svg onload=alert(1)>' if 'svg' in ctype else b'\xff\xd8jpeg', {'Content-Type': ctype})
+        r.status = status
+        return mock.patch.object(app._thumb_opener, 'open', return_value=r)
+
+    def test_svg_rejected_and_raster_sandboxed(self):
+        url = '/api/thumb?url=https://lh3.googleusercontent.com/x=w60-h60'
+        with self.fake('image/svg+xml'):
+            self.assertEqual(self.admin.call('GET', url)[0], 502)
+        with self.fake('image/jpeg'):
+            s, data, h = self.admin.call('GET', url)
+        self.assertEqual((s, h['Content-Type']), (200, 'image/jpeg'))
+        self.assertIn('sandbox', h['Content-Security-Policy'])
+
+    def test_redirects_not_followed(self):
+        self.assertIsNone(app._NoRedirect().redirect_request(None, None, 302, 'Found', {}, 'http://127.0.0.1/'))
+
+    def test_other_google_hosts_rejected(self):
+        for bad in ('https://storage.googleusercontent.com/x', 'https://evil.ytimg.com/x'):
+            self.assertEqual(self.admin.call('GET', '/api/thumb?url=' + bad)[0], 400, bad)
+
 
 class LyricsTests(unittest.TestCase):
     def test_ttml_words(self):
@@ -341,6 +362,15 @@ class LyricsTests(unittest.TestCase):
         lines = lyrics.parse_lrc('[00:01.50]Uno\n[00:03.00][00:10.00]Due\n[ar:Nome]\n[00:05.25]Tre')
         self.assertEqual([(l['t'], l['text']) for l in lines], [(1.5, 'Uno'), (3.0, 'Due'), (5.25, 'Tre'), (10.0, 'Due')])
         self.assertEqual(lines[0]['end'], 3.0)
+
+    def test_cache_key_includes_title(self):
+        con = db.connect(TMP + '/lyr.db')
+        with mock.patch.object(lyrics, 'better_lyrics', return_value={'source': 'x', 'synced': False, 'words': False, 'lines': [{'t': None, 'end': None, 'text': 'falso'}]}), \
+                mock.patch.object(lyrics, 'lrclib', return_value=None):
+            lyrics.find(con, 'JGwWNGJdvx8', 'Titolo falso', 'Altro', 234)
+        with mock.patch.object(lyrics, 'better_lyrics', return_value=None) as b, mock.patch.object(lyrics, 'lrclib', return_value=None):
+            self.assertIsNone(lyrics.find(con, 'JGwWNGJdvx8', 'Shape of You', 'Ed Sheeran', 234))
+            b.assert_called_once()
 
     def test_clean_title(self):
         self.assertEqual(lyrics.clean_title('Song (Official Video) [feat. X]'), 'Song')
