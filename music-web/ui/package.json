@@ -1,0 +1,20 @@
+{
+  "name": "fabio-music-ui",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "svelte": "5.57.3",
+    "vite": "8.3.5"
+  },
+  "dependencies": {
+    "@fontsource-variable/roboto-flex": "5.2.8",
+    "@mdi/js": "7.4.47"
+  }
+}

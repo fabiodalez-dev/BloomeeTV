@@ -1,0 +1,33 @@
+# music.fabiodalez.it — LiteSpeed serve i file dell'interfaccia, Passenger
+# riceve solo /api (app Python in ~/music-app, vedi docs/music-web/DESIGN.md).
+PassengerAppRoot "/home/fabiodal/music-app"
+PassengerBaseURI "/api"
+PassengerPython "/home/fabiodal/music-app/run-lswsgi"
+
+Options -Indexes -MultiViews
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} off
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+  # Percorsi dell'app (/artist/…, /library…): tutti a index.html.
+  RewriteCond %{REQUEST_URI} !^/api/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ /index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "DENY"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.googleusercontent.com https://*.ytimg.com https://*.ggpht.com https://music.youtube.com; media-src 'self'; connect-src 'self'; font-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+  <FilesMatch "\.(js|css|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "^(index\.html|sw\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

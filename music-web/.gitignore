@@ -1,0 +1,5 @@
+ui/node_modules/
+ui/dist/
+server/.venv/
+server/.dev/
+__pycache__/
