@@ -210,7 +210,7 @@
       {:else if name === "youtube"}
         <span class="badge yt"><Icon path={I.mdiYoutube} size={30} /></span>
         <h2 class="headline">Il tuo YouTube Music</h2>
-        <p class="lead">Facoltativo. Collegandolo hai la Home personale e puoi importare le tue playlist e i brani che ti piacciono. Senza, cerchi e ascolti lo stesso.</p>
+        <p class="lead">Facoltativo. Collegandolo puoi importare le tue playlist e i brani che ti piacciono, e con il cookie hai anche la Home personale. Senza, cerchi e ascolti lo stesso.</p>
         <div class="panel"><YouTubeConnect onconnected={() => setTimeout(next, 900)} /></div>
         <div class="actions"><button class="btn text" onclick={back}>Indietro</button><button class="btn tonal big" onclick={next}>{session.youtube ? "Avanti" : "Salta"}</button></div>
       {:else if name === "import"}

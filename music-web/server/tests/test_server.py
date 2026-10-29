@@ -16,7 +16,7 @@ TMP = tempfile.mkdtemp(prefix='musicweb-test-')
 os.environ['MUSICWEB_HOME'] = TMP
 os.environ['MUSICWEB_INSECURE'] = '1'
 
-from musicweb import app, auth, db, library, lyrics, oauth, youtube  # noqa: E402
+from musicweb import app, auth, db, library, lyrics, oauth, tv, youtube  # noqa: E402
 
 SONG = {'kind': 'song', 'title': 'Shape of You', 'videoId': 'JGwWNGJdvx8', 'subtitle': 'Ed Sheeran',
         'artists': [{'name': 'Ed Sheeran', 'id': 'UC0C-w0YjGpqDXGB8IHb662A'}],
@@ -234,7 +234,7 @@ class OAuthTests(Base):
         p = mock.patch.object(oauth, '_post', side_effect=self.fake_post)
         p.start()
         self.addCleanup(p.stop)
-        q = mock.patch.object(youtube, 'api_json', side_effect=self.fake_menu)
+        q = mock.patch.object(tv, 'call', side_effect=self.fake_tv)
         q.start()
         self.addCleanup(q.stop)
 
@@ -248,9 +248,9 @@ class OAuthTests(Base):
             return {'error': 'authorization_pending'}
         return {'access_token': 'tok1', 'refresh_token': 'ref1', 'expires_in': 3600, 'token_type': 'Bearer'}
 
-    def fake_menu(self, endpoint, data, account):
-        assert account['oauth']['access_token'] in ('tok1', 'tok2')
-        return {'x': {'activeAccountHeaderRenderer': {'accountName': {'simpleText': 'Fabio YT'}}}}
+    def fake_tv(self, endpoint, data, token):
+        assert endpoint == 'account/accounts_list' and token['access_token'] in ('tok1', 'tok2')
+        return {'contents': [{'accountItem': {'accountName': {'simpleText': 'Fabio YT'}, 'isSelected': True}}]}
 
     def test_not_configured(self):
         s, d, _ = self.admin.call('POST', '/api/youtube-account/code', {})
@@ -375,6 +375,98 @@ class LyricsTests(unittest.TestCase):
     def test_clean_title(self):
         self.assertEqual(lyrics.clean_title('Song (Official Video) [feat. X]'), 'Song')
 
+
+def tv_tile(kind, title, lines=(), select=None, meta_browse=None, overlay=None, thumb='https://i.ytimg.com/vi/x/hqdefault.jpg'):
+    run = {'text': title}
+    if meta_browse:
+        run['navigationEndpoint'] = {'browseEndpoint': {'browseId': meta_browse}}
+    header = {'thumbnail': {'thumbnails': [{'url': thumb, 'width': 400, 'height': 225}]}}
+    if overlay:
+        header['thumbnailOverlays'] = [{'thumbnailOverlayTimeStatusRenderer': {'text': {'simpleText': overlay}}}]
+    return {'tileRenderer': {'contentType': 'TILE_CONTENT_TYPE_' + kind, 'onSelectCommand': select or {},
+                             'header': {'tileHeaderRenderer': header},
+                             'metadata': {'tileMetadataRenderer': {'title': {'runs': [run]}, 'lines': [
+                                 {'lineRenderer': {'items': [{'lineItemRenderer': {'text': {'simpleText': t}}}]}} for t in lines]}}}}
+
+
+class TVTests(Base):
+    """Library of an account linked with a code: TV answers become WEB_REMIX shapes."""
+
+    PLAYLISTS = {'contents': [tv_tile('PLAYLIST', 'Zeromila', ['Fabio', 'Playlist • 8 tracce'], {'browseEndpoint': {'browseId': 'VLPLabc'}}),
+                              tv_tile('PLAYLIST', '#manifesto', ['Album'], {'browseEndpoint': {'browseId': 'VLOLAKxyz'}}, meta_browse='MPREb_abc'),
+                              tv_tile('CHANNEL', 'Röyksopp', ['Mix'], {'watchPlaylistEndpoint': {'params': 'wAEB'}}),
+                              tv_tile('CHANNEL', 'Nessuno', ['Mix'], {'watchPlaylistEndpoint': {'params': 'wAEB'}})]}
+    LIKED = {'contents': [tv_tile('VIDEO', 'The Cycle', ['Random Hand', '35K visualizzazioni'], {'watchEndpoint': {'videoId': 'gxhMq-0meFo'}}, overlay='3:41')],
+             'x': {'continuations': [{'nextContinuationData': {'continuation': 'NEXT'}}], 'reloadContinuationData': {'continuation': 'TAB'}}}
+
+    def setUp(self):
+        super().setUp()
+        self.calls, self.searches = [], []
+        for target, name, kw in ((tv, 'call', {'side_effect': self.fake_tv}), (youtube, 'api', {'side_effect': self.fake_web}),
+                                 (youtube, 'visitor_data', {'return_value': 'VD'})):
+            p = mock.patch.object(target, name, **kw)
+            p.start()
+            self.addCleanup(p.stop)
+        oauth.save_client('123-abc.apps.googleusercontent.com', 'GOCSPX-secretvalue')
+        token = {'access_token': 'tok', 'refresh_token': 'ref', 'token_type': 'Bearer', 'expires_at': db.now() + 3600}
+        auth.save_yt_account(db.connect(), 1, {'oauth': token}, 'Fabio YT')
+
+    def fake_tv(self, endpoint, data, token):
+        self.calls.append((endpoint, data))
+        if endpoint == 'account/accounts_list':
+            return {'contents': [{'accountItemRenderer': {'accountName': {'simpleText': 'Fabio YT'}, 'isSelected': True}}]}
+        if data.get('continuation') == 'NEXT':
+            return {'continuationContents': {'playlistVideoListContinuation': {'contents': [
+                tv_tile('VIDEO', 'Silvano', ['Artista'], {'watchEndpoint': {'videoId': 'AAAAAAAAAAA'}}, overlay='2:00')]}}}
+        return self.LIKED if data.get('browseId') == 'VLLM' else self.PLAYLISTS
+
+    def fake_web(self, endpoint, data, account):
+        if endpoint == 'search':
+            self.searches.append(data['query'])
+            found = {'Röyksopp': [('Röyksopp', 'UCroyksopp000000000000')]}.get(data['query'], [])
+            d = {'contents': [{'musicResponsiveListItemRenderer': {'navigationEndpoint': {'browseEndpoint': {'browseId': b}},
+                 'flexColumns': [{'musicResponsiveListItemFlexColumnRenderer': {'text': {'runs': [{'text': n}]}}}]}} for n, b in found]}
+        else:
+            d = {'web': endpoint, 'browseId': data.get('browseId'), 'personal': bool(account and (account.get('oauth') or account.get('cookie')))}
+        return gzip.compress(json.dumps(d).encode())
+
+    def browse(self, body):
+        s, d, _ = self.admin.call('POST', '/api/yt/browse', dict(body, personal=True))
+        self.assertEqual(s, 200, d)
+        return d
+
+    def test_library_tiles_become_cards_with_album_and_artist_ids(self):
+        d = self.browse({'browseId': 'FEmusic_liked_playlists'})
+        cards = [n['musicTwoRowItemRenderer'] for n in tv._walk(d) if 'musicTwoRowItemRenderer' in n]
+        ids = [(c['title']['runs'][0]['text'], c['navigationEndpoint']['browseEndpoint']['browseId']) for c in cards]
+        self.assertEqual(ids, [('Zeromila', 'VLPLabc'), ('#manifesto', 'MPREb_abc'), ('Röyksopp', 'UCroyksopp000000000000')])
+        self.assertEqual(cards[0]['subtitle']['runs'][0]['text'], 'Fabio • Playlist • 8 tracce')
+        # Gli artisti si cercano una volta sola, anche quelli non trovati.
+        self.browse({'browseId': 'FEmusic_library_corpus_artists'})
+        self.assertEqual(sorted(self.searches), ['Nessuno', 'Röyksopp'])
+
+    def test_liked_songs_rows_and_tv_continuation(self):
+        d = self.browse({'browseId': 'VLLM'})
+        row = [n['musicResponsiveListItemRenderer'] for n in tv._walk(d) if 'musicResponsiveListItemRenderer' in n][0]
+        self.assertEqual(row['playlistItemData']['videoId'], 'gxhMq-0meFo')
+        self.assertEqual(row['fixedColumns'][0]['musicResponsiveListItemFixedColumnRenderer']['text']['simpleText'], '3:41')
+        self.assertEqual(row['flexColumns'][1]['musicResponsiveListItemFlexColumnRenderer']['text']['runs'][0]['text'], 'Random Hand')
+        token = tv.next_token(d)
+        self.assertEqual(token, 'tv:NEXT')  # la ricarica della scheda non è una pagina
+        d = self.browse({'continuation': token, 'legacy': True})
+        self.assertIn('musicShelfContinuation', d['continuationContents'])
+        self.assertEqual(self.calls[-1], ('browse', {'continuation': 'NEXT'}))
+
+    def test_home_and_other_pages_stay_anonymous_on_web(self):
+        for body in ({'browseId': 'FEmusic_home'}, {'browseId': 'UCroyksopp000000000000'}, {'continuation': 'WEBTOKEN'}):
+            d = self.browse(body)
+            self.assertEqual((d['web'], d['personal']), ('browse', False))
+        self.assertEqual(self.calls, [])
+
+    def test_account_menu_reads_tv_account_name(self):
+        s, d, _ = self.admin.call('POST', '/api/yt/account/account_menu', {})
+        self.assertEqual(youtube.account_name(d), 'Fabio YT')
+        self.assertEqual(self.calls[-1][0], 'account/accounts_list')
 
 @unittest.skipUnless(os.environ.get('LIVE') == '1', 'LIVE=1 per le chiamate reali a YouTube')
 class LiveTests(Base):

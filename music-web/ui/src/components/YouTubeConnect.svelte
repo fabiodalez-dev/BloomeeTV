@@ -100,7 +100,7 @@
         <button class="btn text" onclick={() => ((code = null), clearTimeout(timer))}>Annulla</button>
       </div>
     {:else}
-      <p class="muted h">Come sulle smart TV: ti do un codice, lo approvi su google.com/device da qualsiasi dispositivo. La password resta a Google.</p>
+      <p class="muted h">Come sulle smart TV: ti do un codice, lo approvi su google.com/device da qualsiasi dispositivo. La password resta a Google. Porta playlist, album, artisti e brani che ti piacciono; per la Home personale serve il cookie.</p>
       <button class="btn filled" disabled={busy} onclick={startCode}><Icon path={I.mdiYoutube} size={20} /> {busy ? "Un momento…" : "Ricevi il codice"}</button>
     {/if}
   {:else}

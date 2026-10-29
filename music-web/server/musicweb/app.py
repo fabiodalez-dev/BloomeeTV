@@ -11,7 +11,7 @@ from http.cookies import SimpleCookie
 from urllib.error import HTTPError
 from urllib.parse import parse_qs
 
-from . import auth, config, db, library, lyrics, oauth, youtube
+from . import auth, config, db, library, lyrics, oauth, tv, youtube
 
 FIRST_CHUNK = 512 * 1024
 CHUNK = 1024 * 1024
@@ -276,10 +276,18 @@ def post_yt(req, endpoint):
     personal = body.get('personal') is True or endpoint == 'account/account_menu'
     account = auth.yt_account_fresh(req.con, req.user['id']) if personal else None
     body.pop('personal', None)
-    # Personal pages only when asked: shared pages stay anonymous.
+    # Personal pages only when asked: shared pages stay anonymous. An account
+    # linked with a code reads its library through the TV client (tv.py); the
+    # rest, Home included, is the anonymous WEB_REMIX page.
+    if personal and account and account.get('oauth') and not tv.handles(endpoint, body):
+        personal = False
     if not personal:
         account = {'visitorData': youtube.visitor_data(req.con)} if endpoint == 'browse' else None
     try:
+        if account and account.get('oauth'):
+            vd = youtube.visitor_data(req.con)
+            data = tv.api(req.con, endpoint, body, account['oauth'], lambda b: youtube.api_json('search', b, {'visitorData': vd}))
+            return 'gz', gzip.compress(json.dumps(data).encode('utf-8'), 5)
         return 'gz', youtube.api(endpoint, body, account)
     except ValueError:
         raise HTTPErr(400, 'Richiesta non valida')
@@ -316,9 +324,9 @@ def post_yt_code_check(req):
         return 200, {'status': status, 'message': oauth.wait_hint(status)}
     account = {'oauth': token}
     try:
-        name = youtube.account_name(youtube.api_json('account/account_menu', {}, account))
+        name = youtube.account_name(tv.account_menu(tv.call('account/accounts_list', {}, token)))
     except HTTPError as e:
-        raise HTTPErr(400, 'Google ha dato l\'accesso ma YouTube Music rifiuta il token (%d). Usa il collegamento con il cookie.' % e.code)
+        raise HTTPErr(400, 'Google ha dato l\'accesso ma YouTube rifiuta il token (%d). Usa il collegamento con il cookie.' % e.code)
     except Exception:
         name = None
     if not name:
