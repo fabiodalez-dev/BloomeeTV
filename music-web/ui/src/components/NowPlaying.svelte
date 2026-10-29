@@ -12,6 +12,9 @@
   import { ui, settings, isFavorite, toggleFavorite, navigate } from "../lib/state.svelte.js";
   import { artistNames } from "../lib/yt.js";
   import { time, sized } from "../lib/format.js";
+  import { lockScroll } from "../lib/scrollLock.js";
+  import { onMount } from "svelte";
+  onMount(lockScroll);
   let it = $derived(player.current);
   let sleepOpen = $state(false);
   let tab = $state("cover"); // mobile: cover | lyrics | queue
@@ -110,7 +113,7 @@
 {#if sleepOpen}<SleepTimer onclose={() => (sleepOpen = false)} />{/if}
 
 <style>
-  .np { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column; animation: rise 0.42s var(--ease); overflow: hidden; }
+  .np { position: fixed; inset: 0; z-index: 60; overscroll-behavior: contain; background: var(--bg); display: flex; flex-direction: column; animation: rise 0.42s var(--ease); overflow: hidden; }
   @keyframes rise { from { transform: translateY(100%); } }
   .backdrop {
     position: absolute; inset: -10%; background-size: cover; background-position: center; filter: blur(70px) saturate(1.5); opacity: 0.38;

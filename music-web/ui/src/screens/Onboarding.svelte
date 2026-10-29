@@ -5,6 +5,7 @@
   import Icon from "../components/Icon.svelte";
   import Cover from "../components/Cover.svelte";
   import YouTubeConnect from "../components/YouTubeConnect.svelte";
+  import { lockScroll } from "../lib/scrollLock.js";
   import * as I from "../lib/icons.js";
   import { yt, ytAll, post, patch, put } from "../lib/api.js";
   import { flatItems, continuation, parseSections, searchPage, searchParams } from "../lib/yt.js";
@@ -167,6 +168,7 @@
 
   onMount(() => {
     document.getElementById("onb")?.focus();
+    return lockScroll();
   });
   let artistsShown = $derived(q.trim() ? found : suggested);
 </script>
@@ -269,7 +271,7 @@
 </div>
 
 <style>
-  .onb { position: fixed; inset: 0; z-index: 70; background: var(--bg); overflow-y: auto; outline: none; display: flex; flex-direction: column; }
+  .onb { position: fixed; inset: 0; z-index: 70; background: var(--bg); overflow-y: auto; overscroll-behavior: contain; outline: none; display: flex; flex-direction: column; }
   .progress { display: flex; gap: 6px; padding: 18px clamp(16px, 4vw, 48px) 0; max-width: 760px; width: 100%; margin: 0 auto; }
   .progress span { flex: 1; height: 4px; border-radius: 2px; background: var(--surface-3); transition: background 0.4s; }
   .progress span.on { background: var(--primary); }
